@@ -22,13 +22,13 @@ export default function AdminLogin() {
       
       // 如果不包含@，说明是用户名，需要查询邮箱
       if (!email.includes('@')) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
           .select('email')
           .eq('username', usernameOrEmail)
           .single()
         
-        if (!profile || !profile.email) {
+        if (profileError || !profile?.email) {
           setError('用户名不存在')
           setLoading(false)
           return
@@ -88,7 +88,7 @@ export default function AdminLogin() {
               value={usernameOrEmail}
               onChange={(e) => setUsernameOrEmail(e.target.value)}
               className="w-full bg-black border border-neutral-700 rounded p-2 focus:border-blue-500 outline-none"
-              placeholder="请输入用户名或邮箱"
+              placeholder="AlanDeng 或 alandeng@admin.com"
               required
               disabled={loading}
             />
@@ -114,7 +114,7 @@ export default function AdminLogin() {
             {loading ? '登录中...' : '登录'}
           </button>
           <p className="text-xs text-gray-500 mt-4 text-center">
-            使用用户名或邮箱登录 · 支持 Supabase Auth
+            支持用户名或邮箱登录 · Supabase Auth
           </p>
         </form>
       </div>

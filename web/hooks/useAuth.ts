@@ -109,13 +109,13 @@ export function useAuth() {
       
       // 如果不包含@，说明是用户名，需要查询邮箱
       if (!email.includes('@')) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
           .select('email')
           .eq('username', data.usernameOrEmail)
           .single()
         
-        if (!profile || !profile.email) {
+        if (profileError || !profile?.email) {
           return { success: false, message: '用户名不存在' }
         }
 
@@ -128,7 +128,7 @@ export function useAuth() {
       })
 
       if (error) {
-        return { success: false, message: '邮箱或密码错误' }
+        return { success: false, message: '用户名/邮箱或密码错误' }
       }
 
       return { success: true, message: '登录成功' }
