@@ -8,6 +8,7 @@ import { CommentSection } from './CommentSection'
 import { sharePost } from '@/lib/share-utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { useUser } from '@/hooks/useUser'
 
 interface PostCardProps {
   post: Post
@@ -36,12 +37,13 @@ const TypeLabel = ({ type, subject }: { type: PostType, subject?: string }) => {
 
 export function PostCard({ post, onLike, onDelete, currentUsername }: PostCardProps) {
   const { user } = useAuth()
+  const { getDisplayName } = useUser()
   const isConfession = post.type === 'confession';
   const [showComments, setShowComments] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
   
   // 判断是否为当前用户的帖子（匿名帖子不显示删除按钮）
-  const isOwnPost = user && post.author_name === user.username && post.type !== 'anonymous' && post.type !== 'confession'
+  const isOwnPost = user && post.author_name === getDisplayName() && post.type !== 'anonymous' && post.type !== 'confession'
 
   const handleShare = async () => {
     const result = await sharePost(post.id, post.content, post.type)

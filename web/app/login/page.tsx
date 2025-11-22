@@ -2,21 +2,32 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
-  const [username, setUsername] = useState('')
+  const [usernameOrEmail, setUsernameOrEmail] = useState('')
   const [password, setPassword] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!username || !password) return
-    // 本地模拟账号：只要填了就当作登录成功
-    login(username)
-    router.push('/')
+    if (!usernameOrEmail.trim()) {
+      alert('请输入用户名或邮箱')
+      return
+    }
+    if (!password.trim()) {
+      alert('请输入密码')
+      return
+    }
+    
+    const result = login({ usernameOrEmail, password })
+    if (result.success) {
+      router.push('/')
+    } else {
+      alert(result.message)
+    }
   }
 
   return (
@@ -28,12 +39,13 @@ export default function LoginPage() {
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">账号</label>
+            <label className="block text-xs text-gray-400 mb-1">用户名或邮箱</label>
             <input
               className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-white"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              placeholder="请输入账号"
+              value={usernameOrEmail}
+              onChange={e => setUsernameOrEmail(e.target.value)}
+              placeholder="请输入用户名或邮箱"
+              required
             />
           </div>
           <div>

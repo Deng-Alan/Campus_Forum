@@ -202,9 +202,11 @@ export default function Home() {
     <main className="min-h-screen bg-[#121212] text-white">
       {/* 顶部导航模拟 */}
       <nav className="sticky top-0 z-10 bg-[#121212]/80 backdrop-blur border-b border-white/10 mb-6">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="font-bold text-[#0066CC] text-lg">武冈三中论坛</div>
-          <div className="flex gap-4 items-center text-sm text-gray-400">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between">
+          <div className="font-bold text-[#0066CC] text-base sm:text-lg">武冈三中论坛</div>
+          
+          {/* 桌面端导航 */}
+          <div className="hidden md:flex gap-4 items-center text-sm text-gray-400">
             {navItems.map(item => (
               <button
                 key={item.id}
@@ -224,14 +226,19 @@ export default function Home() {
               我的
             </Link>
             {isLoggedIn ? (
-              <div className="flex items-center gap-3 ml-4 text-xs">
-                <span className="text-gray-400">已登录：<span className="text-gray-100">{user?.username}</span></span>
-                <button
-                  onClick={logout}
-                  className="px-2 py-1 rounded border border-white/20 text-red-400 hover:bg-white/10"
-                >
-                  退出
-                </button>
+              <div className="flex items-center gap-2 ml-4">
+                {user?.avatar ? (
+                  <img 
+                    src={user.avatar} 
+                    alt={user.nickname}
+                    className="w-7 h-7 rounded-full object-cover border border-white/20"
+                  />
+                ) : (
+                  <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold border border-white/20">
+                    {user?.nickname?.charAt(0)}
+                  </div>
+                )}
+                <span className="text-gray-100 text-sm">{user?.nickname}</span>
               </div>
             ) : (
               <div className="flex items-center gap-3 ml-4 text-xs">
@@ -244,17 +251,63 @@ export default function Home() {
               </div>
             )}
           </div>
+
+          {/* 移动端导航 */}
+          <div className="flex md:hidden items-center gap-2">
+            <Link href="/my-posts" className="p-2 hover:bg-white/10 rounded-lg">
+              {isLoggedIn && user?.avatar ? (
+                <img 
+                  src={user.avatar} 
+                  alt={user.nickname}
+                  className="w-7 h-7 rounded-full object-cover border border-white/20"
+                />
+              ) : isLoggedIn ? (
+                <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold border border-white/20">
+                  {user?.nickname?.charAt(0)}
+                </div>
+              ) : (
+                <div className="flex gap-2 text-xs">
+                  <Link href="/login" className="text-gray-400 hover:text-white px-2 py-1">
+                    登录
+                  </Link>
+                  <Link href="/register" className="text-gray-400 hover:text-white px-2 py-1">
+                    注册
+                  </Link>
+                </div>
+              )}
+            </Link>
+          </div>
+        </div>
+
+        {/* 移动端板块导航 */}
+        <div className="md:hidden border-t border-white/10 px-3 py-2 overflow-x-auto">
+          <div className="flex gap-2 min-w-max">
+            {navItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as any)}
+                className={clsx(
+                  "px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
+                  activeTab === item.id 
+                    ? "bg-blue-600 text-white" 
+                    : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
       </nav>
 
-      <div className="max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {/* 左侧主要内容区 (占 2/3) */}
         <div className="md:col-span-2">
-          <header className="mb-6">
-            <h1 className="text-2xl font-bold mb-1 text-white">
+          <header className="mb-4 md:mb-6">
+            <h1 className="text-xl sm:text-2xl font-bold mb-1 text-white">
               {navItems.find(i => i.id === activeTab)?.label}
             </h1>
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-400 text-xs sm:text-sm">
               {activeTab === 'all' ? '看看同学们都在聊什么' : 
                activeTab === 'campus_fun' ? '分享校园里的快乐瞬间' :
                activeTab === 'study_help' ? '互帮互助，共同进步' :
@@ -265,11 +318,11 @@ export default function Home() {
 
           {/* 学科筛选器（仅在学习互助板块显示） */}
           {activeTab === 'study_help' && (
-            <div className="mb-6 flex gap-2 flex-wrap">
+            <div className="mb-4 md:mb-6 flex gap-2 flex-wrap overflow-x-auto pb-2">
               <button
                 onClick={() => setSubjectFilter(null)}
                 className={clsx(
-                  "px-3 py-1.5 text-sm rounded-full transition-colors",
+                  "px-3 py-1.5 text-xs sm:text-sm rounded-full transition-colors whitespace-nowrap",
                   subjectFilter === null
                     ? "bg-blue-600 text-white"
                     : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
@@ -282,7 +335,7 @@ export default function Home() {
                   key={subject}
                   onClick={() => setSubjectFilter(subject)}
                   className={clsx(
-                    "px-3 py-1.5 text-sm rounded-full transition-colors",
+                    "px-3 py-1.5 text-xs sm:text-sm rounded-full transition-colors whitespace-nowrap",
                     subjectFilter === subject
                       ? "bg-blue-600 text-white"
                       : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
@@ -297,10 +350,10 @@ export default function Home() {
           {isLoggedIn ? (
             <CreatePost onSubmit={handleCreatePost} currentType={activeTab === 'all' ? 'campus_fun' : activeTab as PostType} />
           ) : (
-            <div className="mb-8 bg-neutral-900 p-4 rounded-lg border border-white/10">
-              <div className="text-sm text-gray-200 mb-2">登录后才能发帖和点赞。</div>
+            <div className="mb-6 md:mb-8 bg-neutral-900 p-3 sm:p-4 rounded-lg border border-white/10">
+              <div className="text-xs sm:text-sm text-gray-200 mb-2">登录后才能发帖和点赞。</div>
               <div className="text-xs text-gray-500 mb-3">当前为本地模拟账号系统，仅在本浏览器内生效。</div>
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3">
                 <Link
                   href="/login"
                   className="px-3 py-1.5 rounded bg-[#0066CC] text-xs text-white hover:bg-[#1a7be0]"

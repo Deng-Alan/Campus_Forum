@@ -1,21 +1,18 @@
 import { useState, useEffect } from 'react'
 
 export interface UserInfo {
-  nickname: string
   isAnonymous: boolean
 }
 
-const STORAGE_KEY = 'campus_forum_user'
-const DEFAULT_NICKNAME = '某位同学'
+const STORAGE_KEY = 'campus_forum_user_prefs'
 
 export function useUser() {
   const [user, setUser] = useState<UserInfo>({
-    nickname: DEFAULT_NICKNAME,
     isAnonymous: false
   })
   const [isLoaded, setIsLoaded] = useState(false)
 
-  // 从 localStorage 加载用户信息
+  // 从 localStorage 加载用户偏好设置
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
@@ -29,13 +26,6 @@ export function useUser() {
     setIsLoaded(true)
   }, [])
 
-  // 更新昵称
-  const updateNickname = (nickname: string) => {
-    const newUser = { ...user, nickname }
-    setUser(newUser)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser))
-  }
-
   // 切换匿名模式
   const toggleAnonymous = (isAnonymous: boolean) => {
     const newUser = { ...user, isAnonymous }
@@ -43,12 +33,22 @@ export function useUser() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser))
   }
 
-  // 获取显示名称（考虑匿名模式）
+  // 获取显示名称（从 useAuth 获取昵称，考虑匿名模式）
   const getDisplayName = () => {
     if (user.isAnonymous) {
       return '匿名同学'
     }
-    return user.nickname || DEFAULT_NICKNAME
+    // 从 useAuth 的 localStorage 获取昵称
+    const authUser = localStorage.getItem('campus_forum_auth_user')
+    if (authUser) {
+      try {
+        const parsed = JSON.parse(authUser)
+        return parsed.nickname || '某位同学'
+      } catch (err) {
+        return '某位同学'
+      }
+    }
+    return '某位同学'
   }
 
   // 记录发帖 ID
@@ -71,7 +71,6 @@ export function useUser() {
   return {
     user,
     isLoaded,
-    updateNickname,
     toggleAnonymous,
     getDisplayName,
     addPostId,

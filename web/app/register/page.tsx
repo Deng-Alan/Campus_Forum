@@ -2,26 +2,56 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
+import Link from 'next/link'
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { login } = useAuth()
+  const { register } = useAuth()
+  const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
+  const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!username || !password) return
-    if (password !== confirm) {
+    
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      alert('请输入有效的邮箱地址')
+      return
+    }
+    
+    if (username.length < 3) {
+      alert('用户名至少需要3个字符')
+      return
+    }
+    
+    if (nickname.length < 2) {
+      alert('昵称至少需要2个字符')
+      return
+    }
+    
+    if (password.length < 6) {
+      alert('密码至少需要6个字符')
+      return
+    }
+    
+    if (password !== confirmPassword) {
       alert('两次输入的密码不一致')
       return
     }
-    // 本地模拟注册：其实就是直接当作登录，并把账号存在 localStorage
-    login(username)
-    router.push('/')
+    
+    // 注册
+    const result = register({ email, username, nickname, password })
+    if (result.success) {
+      alert(result.message)
+      router.push('/')
+    } else {
+      alert(result.message)
+    }
   }
 
   return (
@@ -33,12 +63,34 @@ export default function RegisterPage() {
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">账号</label>
+            <label className="block text-xs text-gray-400 mb-1">邮箱</label>
+            <input
+              type="email"
+              className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-white"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="请输入邮箱"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">用户名（登录用）</label>
             <input
               className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-white"
               value={username}
               onChange={e => setUsername(e.target.value)}
-              placeholder="请输入账号"
+              placeholder="请输入用户名（用于登录）"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">昵称（显示用）</label>
+            <input
+              className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-white"
+              value={nickname}
+              onChange={e => setNickname(e.target.value)}
+              placeholder="请输入昵称（公开显示）"
+              required
             />
           </div>
           <div>
@@ -48,7 +100,8 @@ export default function RegisterPage() {
               className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-white"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="请输入密码"
+              placeholder="请输入密码（至少6位）"
+              required
             />
           </div>
           <div>
@@ -56,9 +109,10 @@ export default function RegisterPage() {
             <input
               type="password"
               className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-white"
-              value={confirm}
-              onChange={e => setConfirm(e.target.value)}
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
               placeholder="请再次输入密码"
+              required
             />
           </div>
           <button

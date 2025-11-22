@@ -6,11 +6,15 @@ import { UserSettings } from '@/components/UserSettings'
 import { supabase } from '@/lib/supabase'
 import { Post } from '@/types'
 import { useUser } from '@/hooks/useUser'
+import { useAuth } from '@/hooks/useAuth'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, History } from 'lucide-react'
+import { ArrowLeft, History, LogOut } from 'lucide-react'
 
 export default function MyPosts() {
   const { getPostIds } = useUser()
+  const { logout } = useAuth()
+  const router = useRouter()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -62,14 +66,26 @@ export default function MyPosts() {
     <main className="min-h-screen bg-[#121212] text-white p-4">
       <div className="max-w-3xl mx-auto">
         {/* 顶部导航 */}
-        <div className="flex items-center gap-4 mb-8 pb-4 border-b border-white/10">
-          <Link href="/" className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <ArrowLeft size={24} />
-          </Link>
-          <div className="flex items-center gap-2 text-xl font-bold text-[#0066CC]">
-            <History />
-            我的发帖历史
+        <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <ArrowLeft size={24} />
+            </Link>
+            <div className="flex items-center gap-2 text-xl font-bold text-[#0066CC]">
+              <History />
+              我的发帖历史
+            </div>
           </div>
+          <button
+            onClick={() => {
+              logout()
+              router.push('/')
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+          >
+            <LogOut size={18} />
+            退出登录
+          </button>
         </div>
 
         {/* 个人信息 */}
