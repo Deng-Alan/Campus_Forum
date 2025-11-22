@@ -140,6 +140,47 @@ export function useAuth() {
     }
   }
 
+  const updateUsername = (newUsername: string): { success: boolean; message: string } => {
+    if (!user) return { success: false, message: '未登录' }
+    
+    const users = getAllUsers()
+    // 检查新用户名是否已被占用
+    if (users.some(u => u.username === newUsername && u.userId !== user.userId)) {
+      return { success: false, message: '用户名已被占用' }
+    }
+    
+    const updatedUser = { ...user, username: newUsername }
+    setUser(updatedUser)
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser))
+    updateUserInList(updatedUser)
+    return { success: true, message: '用户名更新成功' }
+  }
+
+  const updateNickname = (newNickname: string): { success: boolean; message: string } => {
+    if (!user) return { success: false, message: '未登录' }
+    
+    const updatedUser = { ...user, nickname: newNickname }
+    setUser(updatedUser)
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser))
+    updateUserInList(updatedUser)
+    return { success: true, message: '昵称更新成功' }
+  }
+
+  const updatePassword = (oldPassword: string, newPassword: string): { success: boolean; message: string } => {
+    if (!user) return { success: false, message: '未登录' }
+    
+    // 验证旧密码
+    if (user.password !== oldPassword) {
+      return { success: false, message: '原密码错误' }
+    }
+    
+    const updatedUser = { ...user, password: newPassword }
+    setUser(updatedUser)
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser))
+    updateUserInList(updatedUser)
+    return { success: true, message: '密码更新成功' }
+  }
+
   return {
     user,
     isLoaded,
@@ -147,6 +188,9 @@ export function useAuth() {
     login,
     logout,
     updateAvatar,
+    updateUsername,
+    updateNickname,
+    updatePassword,
     isLoggedIn: !!user,
   }
 }
