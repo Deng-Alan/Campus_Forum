@@ -9,9 +9,24 @@ import clsx from 'clsx'
 
 export function UserSettings() {
   const { getDisplayName } = useUser()
-  const { user: authUser, updateAvatar } = useAuth()
+  const { user: authUser, updateAvatar, updateUsername, updateNickname, updatePassword } = useAuth()
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // 编辑状态
+  const [editingField, setEditingField] = useState<'username' | 'nickname' | 'password' | null>(null)
+  const [tempUsername, setTempUsername] = useState('')
+  const [tempNickname, setTempNickname] = useState('')
+  const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  
+  useEffect(() => {
+    if (authUser) {
+      setTempUsername(authUser.username)
+      setTempNickname(authUser.nickname)
+    }
+  }, [authUser])
 
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
