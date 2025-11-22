@@ -1,24 +1,35 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 import { supabase } from '@/lib/supabase'
 import { Post, Announcement, Report } from '@/types'
-import { Trash2, LogOut, Megaphone, FileText, AlertTriangle, Check, X, Plus, Settings } from 'lucide-react'
+import { Trash2, LogOut, Megaphone, FileText, AlertTriangle, Check, X, Plus, Settings, Menu, MessageSquare, TrendingUp } from 'lucide-react'
 import clsx from 'clsx'
 
-type Tab = 'posts' | 'announcements' | 'reports' | 'moderation' | 'settings'
+type Tab = 'dashboard' | 'posts' | 'announcements' | 'reports' | 'moderation' | 'comments' | 'settings'
+
+interface Comment {
+  id: string
+  post_id: string
+  author_name: string
+  content: string
+  created_at: string
+  post_title?: string
+}
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<Tab>('posts')
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [loading, setLoading] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const router = useRouter()
 
   // Data States
   const [posts, setPosts] = useState<Post[]>([])
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [reports, setReports] = useState<Report[]>([])
+  const [comments, setComments] = useState<Comment[]>([])
   const [stats, setStats] = useState({
     totalPosts: 0,
     studyHelpPosts: 0,
@@ -26,7 +37,10 @@ export default function AdminDashboard() {
     anonymousPosts: 0,
     announcements: 0,
     pendingReports: 0,
+    totalComments: 0,
+    totalUsers: 0,
   })
+  const [chartData, setChartData] = useState<any[]>([])
 
   // Posts filters
   const [postSearch, setPostSearch] = useState('')
@@ -64,11 +78,12 @@ export default function AdminDashboard() {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchData({ silent: true })
       }
-    }, 15000)
+    }, 30000) // 优化：从15秒改为30秒
 
     return () => {
       clearInterval(intervalId)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, activeTab, postTypeFilter, postReviewFilter, postSearch])
 
   useEffect(() => {
@@ -83,14 +98,14 @@ export default function AdminDashboard() {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchStats()
       }
-    }, 30000)
+    }, 60000) // 优化：从30秒改为60秒
 
     return () => {
       clearInterval(statsIntervalId)
     }
   }, [router])
 
-  const fetchData = async (options?: { silent?: boolean }) => {
+  const fetchData = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) {
       setLoading(true)
     }
@@ -143,14 +158,18 @@ export default function AdminDashboard() {
 
         const { data } = await query
         setPosts(data || [])
+      } else if (activeTab === 'dashboard') {
+        await fetchChartData()
+      } else if (activeTab === 'comments') {
+        await fetchComments()
       } else if (activeTab === 'settings') {
         const { data } = await supabase.from('system_settings').select('*')
-        if (data) {
-          const settingsMap: any = {}
+        if (data && data.length > 0) {
+          const settings: any = {}
           data.forEach(item => {
-            settingsMap[item.key] = item.value
+            settings[item.key] = item.value
           })
-          setSystemSettings(prev => ({ ...prev, ...settingsMap }))
+          setSystemSettings(settings)
         }
       }
     } catch (error) {
@@ -160,7 +179,86 @@ export default function AdminDashboard() {
         setLoading(false)
       }
     }
-  }
+  }, [activeTab, postTypeFilter, postReviewFilter, postSearch])
+
+  // 获取评论数据
+  const fetchComments = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('comments')
+      .select('*, posts(content)')
+      .order('created_at', { ascending: false })
+      .limit(100)
+    
+    if (!error && data) {
+      setComments(data.map(c => ({
+        ...c,
+        post_title: c.posts?.content?.substring(0, 30) + '...' || '已删除帖子'
+      })))
+    }
+  }, [])
+
+  // 删除评论
+  const handleDeleteComment = useCallback(async (id: string) => {
+    if (!confirm('确定要删除这条评论吗？')) return
+    const { error } = await supabase.from('comments').delete().eq('id', id)
+    if (!error) {
+      setComments(comments.filter(c => c.id !== id))
+      alert('删除成功')
+    } else {
+      alert('删除失败')
+    }
+  }, [comments])
+
+  // 获取图表数据（最近7天）- 优化版：一次查询获取所有数据
+  const fetchChartData = useCallback(async () => {
+    const days = 7
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - (days - 1))
+    startDate.setHours(0, 0, 0, 0)
+    
+    // 一次性获取所有帖子和评论数据
+    const [
+      { data: posts },
+      { data: comments }
+    ] = await Promise.all([
+      supabase
+        .from('posts')
+        .select('created_at')
+        .gte('created_at', startDate.toISOString()),
+      supabase
+        .from('comments')
+        .select('created_at')
+        .gte('created_at', startDate.toISOString())
+    ])
+    
+    // 在前端按日期分组统计
+    const data = []
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      date.setHours(0, 0, 0, 0)
+      const nextDate = new Date(date)
+      nextDate.setDate(nextDate.getDate() + 1)
+      
+      const postsCount = posts?.filter(p => {
+        const createdAt = new Date(p.created_at)
+        return createdAt >= date && createdAt < nextDate
+      }).length || 0
+      
+      const commentsCount = comments?.filter(c => {
+        const createdAt = new Date(c.created_at)
+        return createdAt >= date && createdAt < nextDate
+      }).length || 0
+      
+      data.push({
+        date: `${date.getMonth() + 1}/${date.getDate()}`,
+        posts: postsCount,
+        comments: commentsCount,
+      })
+    }
+    
+    setChartData(data)
+  }, [])
 
   const fetchStats = async () => {
     try {
@@ -180,6 +278,15 @@ export default function AdminDashboard() {
         supabase.from('reports').select('*', { head: true, count: 'exact' }).eq('status', 'pending'),
       ])
 
+      // 获取评论总数
+      const { count: commentsCount } = await supabase
+        .from('comments')
+        .select('*', { head: true, count: 'exact' })
+      
+      // 获取用户总数 (从 localStorage 用户列表)
+      const usersData = localStorage.getItem('campus_forum_users')
+      const usersCount = usersData ? JSON.parse(usersData).length : 0
+
       setStats({
         totalPosts: totalPosts || 0,
         studyHelpPosts: studyHelpPosts || 0,
@@ -187,6 +294,8 @@ export default function AdminDashboard() {
         anonymousPosts: anonymousPosts || 0,
         announcements: announcementsCount || 0,
         pendingReports: pendingReports || 0,
+        totalComments: commentsCount || 0,
+        totalUsers: usersCount,
       })
     } catch (error) {
       console.error('Error fetching admin stats:', error)
@@ -345,27 +454,70 @@ export default function AdminDashboard() {
     router.push('/admin/login')
   }
 
-  const filteredReports =
-    reportStatusFilter === 'all' ? reports : reports.filter((r) => r.status === reportStatusFilter)
+  const filteredReports = useMemo(() => 
+    reportStatusFilter === 'all' ? reports : reports.filter((r) => r.status === reportStatusFilter),
+    [reports, reportStatusFilter]
+  )
 
-  const reportStats = {
+  const reportStats = useMemo(() => ({
     total: reports.length,
     pending: reports.filter((r) => r.status === 'pending').length,
     resolved: reports.filter((r) => r.status === 'resolved').length,
     ignored: reports.filter((r) => r.status === 'ignored').length,
-  }
+  }), [reports])
 
   return (
-    <div className="min-h-screen bg-black text-white flex">
+    <div className="min-h-screen bg-black text-white flex flex-col md:flex-row">
+      {/* 移动端顶部栏 */}
+      <div className="md:hidden bg-neutral-900 border-b border-white/10 px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+        <h1 className="text-lg font-bold text-[#0066CC]">三中论坛后台</h1>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+        >
+          <Menu size={24} />
+        </button>
+      </div>
+
+      {/* 遮罩层 (移动端) */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="w-64 bg-neutral-900 border-r border-white/10 p-6 flex flex-col">
-        <h1 className="text-xl font-bold text-[#0066CC] mb-8">三中论坛后台</h1>
+      <div className={clsx(
+        "bg-neutral-900 border-r border-white/10 p-4 sm:p-6 flex flex-col",
+        "md:w-64 md:static md:translate-x-0",
+        "fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <h1 className="text-lg sm:text-xl font-bold text-[#0066CC] mb-6 sm:mb-8 hidden md:block">三中论坛后台</h1>
 
         <nav className="space-y-2 flex-1">
           <button
-            onClick={() => setActiveTab('posts')}
+            onClick={() => {
+              setActiveTab('dashboard')
+              setSidebarOpen(false)
+            }}
             className={clsx(
-              'w-full flex items-center gap-3 px-4 py-3 rounded transition-colors',
+              'w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded transition-colors text-sm sm:text-base',
+              activeTab === 'dashboard'
+                ? 'bg-[#0066CC] text-white'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white',
+            )}
+          >
+            <TrendingUp size={18} /> 数据统计
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('posts')
+              setSidebarOpen(false)
+            }}
+            className={clsx(
+              'w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded transition-colors text-sm sm:text-base',
               activeTab === 'posts'
                 ? 'bg-[#0066CC] text-white'
                 : 'text-gray-400 hover:bg-white/5 hover:text-white',
@@ -374,9 +526,12 @@ export default function AdminDashboard() {
             <FileText size={18} /> 帖子管理
           </button>
           <button
-            onClick={() => setActiveTab('announcements')}
+            onClick={() => {
+              setActiveTab('announcements')
+              setSidebarOpen(false)
+            }}
             className={clsx(
-              'w-full flex items-center gap-3 px-4 py-3 rounded transition-colors',
+              'w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded transition-colors text-sm sm:text-base',
               activeTab === 'announcements'
                 ? 'bg-[#0066CC] text-white'
                 : 'text-gray-400 hover:bg-white/5 hover:text-white',
@@ -385,9 +540,12 @@ export default function AdminDashboard() {
             <Megaphone size={18} /> 公告管理
           </button>
           <button
-            onClick={() => setActiveTab('reports')}
+            onClick={() => {
+              setActiveTab('reports')
+              setSidebarOpen(false)
+            }}
             className={clsx(
-              'w-full flex items-center gap-3 px-4 py-3 rounded transition-colors',
+              'w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded transition-colors text-sm sm:text-base',
               activeTab === 'reports'
                 ? 'bg-[#0066CC] text-white'
                 : 'text-gray-400 hover:bg-white/5 hover:text-white',
@@ -396,9 +554,12 @@ export default function AdminDashboard() {
             <AlertTriangle size={18} /> 举报处理
           </button>
           <button
-            onClick={() => setActiveTab('moderation')}
+            onClick={() => {
+              setActiveTab('moderation')
+              setSidebarOpen(false)
+            }}
             className={clsx(
-              'w-full flex items-center gap-3 px-4 py-3 rounded transition-colors',
+              'w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded transition-colors text-sm sm:text-base',
               activeTab === 'moderation'
                 ? 'bg-[#0066CC] text-white'
                 : 'text-gray-400 hover:bg-white/5 hover:text-white',
@@ -407,9 +568,26 @@ export default function AdminDashboard() {
             <Check size={18} /> 审核管理
           </button>
           <button
-            onClick={() => setActiveTab('settings')}
+            onClick={() => {
+              setActiveTab('comments')
+              setSidebarOpen(false)
+            }}
             className={clsx(
-              'w-full flex items-center gap-3 px-4 py-3 rounded transition-colors',
+              'w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded transition-colors text-sm sm:text-base',
+              activeTab === 'comments'
+                ? 'bg-[#0066CC] text-white'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white',
+            )}
+          >
+            <MessageSquare size={18} /> 评论管理
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('settings')
+              setSidebarOpen(false)
+            }}
+            className={clsx(
+              'w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded transition-colors text-sm sm:text-base',
               activeTab === 'settings'
                 ? 'bg-[#0066CC] text-white'
                 : 'text-gray-400 hover:bg-white/5 hover:text-white',
@@ -428,13 +606,13 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-8 overflow-y-auto h-screen">
+      <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto min-h-screen md:h-screen">
         {loading ? (
           <div className="text-center text-gray-500 mt-20">加载中...</div>
         ) : (
           <>
             {/* 概览统计卡片 */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
               <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
                 <div className="text-xs text-gray-400 mb-1">总帖子数</div>
                 <div className="text-2xl font-bold text-white">{stats.totalPosts}</div>
@@ -468,6 +646,253 @@ export default function AdminDashboard() {
               <div className="fixed top-4 right-4 z-50">
                 <div className="px-4 py-2 rounded-md border border-green-500 bg-black text-xs text-green-300 shadow-lg shadow-black/40">
                   {actionMessage}
+                </div>
+              </div>
+            )}
+
+            {/* Dashboard - 数据统计 */}
+            {activeTab === 'dashboard' && (
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-6">数据统计</h2>
+
+                {/* 折线图数据展示 */}
+                <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4 sm:p-6 mb-6">
+                  <h3 className="text-lg font-bold mb-4">近7天趋势</h3>
+                  {chartData.length > 0 ? (() => {
+                      const maxValue = Math.max(
+                        1, // 最小值为1，避免除以0
+                        ...chartData.map(d => Math.max(d.posts, d.comments))
+                      )
+                      
+                      // 如果所有数据都是0，显示提示
+                      if (maxValue <= 1 && chartData.every(d => d.posts === 0 && d.comments === 0)) {
+                        return (
+                          <div className="text-center text-gray-500 py-8">
+                            暂无数据，请先发布帖子或评论
+                          </div>
+                        )
+                      }
+                      
+                      return (
+                        <div className="space-y-4">
+                          {/* SVG 折线图 */}
+                          <div className="w-full overflow-x-auto">
+                            <svg
+                              viewBox="0 0 700 300"
+                              className="w-full h-auto"
+                              style={{ minWidth: '500px' }}
+                            >
+                              {/* 网格线 */}
+                              {[0, 1, 2, 3, 4, 5].map((i) => (
+                                <g key={i}>
+                                  <line
+                                    x1="50"
+                                    y1={50 + i * 40}
+                                    x2="650"
+                                    y2={50 + i * 40}
+                                    stroke="#374151"
+                                    strokeWidth="1"
+                                    strokeDasharray="5,5"
+                                  />
+                                </g>
+                              ))}
+
+                              {/* Y轴标签 */}
+                              {[0, 1, 2, 3, 4, 5].map((i) => {
+                                const value = Math.ceil(maxValue - (maxValue / 5) * i)
+                                return (
+                                  <text
+                                    key={i}
+                                    x="40"
+                                    y={55 + i * 40}
+                                    fill="#9CA3AF"
+                                    fontSize="12"
+                                    textAnchor="end"
+                                  >
+                                    {value}
+                                  </text>
+                                )
+                              })}
+
+                          {/* X轴标签 */}
+                          {chartData.map((item, idx) => (
+                            <text
+                              key={idx}
+                              x={50 + (idx * (600 / (chartData.length - 1)))}
+                              y="270"
+                              fill="#9CA3AF"
+                              fontSize="12"
+                              textAnchor="middle"
+                            >
+                              {item.date}
+                            </text>
+                          ))}
+
+                              {/* 帖子数据线（蓝色） */}
+                              <polyline
+                                points={chartData
+                                  .map((item, idx) => {
+                                    const x = 50 + (idx * (600 / (chartData.length - 1)))
+                                    const y = 250 - (item.posts / maxValue) * 200
+                                    return `${x},${y}`
+                                  })
+                                  .join(' ')}
+                                fill="none"
+                                stroke="#3B82F6"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+
+                              {/* 帖子数据点 */}
+                              {chartData.map((item, idx) => {
+                                const x = 50 + (idx * (600 / (chartData.length - 1)))
+                                const y = 250 - (item.posts / maxValue) * 200
+                                return (
+                                  <g key={idx}>
+                                    <circle cx={x} cy={y} r="5" fill="#3B82F6" />
+                                    <text
+                                      x={x}
+                                      y={y - 10}
+                                      fill="#3B82F6"
+                                      fontSize="11"
+                                      fontWeight="bold"
+                                      textAnchor="middle"
+                                    >
+                                      {item.posts}
+                                    </text>
+                                  </g>
+                                )
+                              })}
+
+                              {/* 评论数据线（绿色） */}
+                              <polyline
+                                points={chartData
+                                  .map((item, idx) => {
+                                    const x = 50 + (idx * (600 / (chartData.length - 1)))
+                                    const y = 250 - (item.comments / maxValue) * 200
+                                    return `${x},${y}`
+                                  })
+                                  .join(' ')}
+                                fill="none"
+                                stroke="#10B981"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+
+                              {/* 评论数据点 */}
+                              {chartData.map((item, idx) => {
+                                const x = 50 + (idx * (600 / (chartData.length - 1)))
+                                const y = 250 - (item.comments / maxValue) * 200
+                                return (
+                                  <g key={idx}>
+                                    <circle cx={x} cy={y} r="5" fill="#10B981" />
+                                    <text
+                                      x={x}
+                                      y={y - 10}
+                                      fill="#10B981"
+                                      fontSize="11"
+                                      fontWeight="bold"
+                                      textAnchor="middle"
+                                    >
+                                      {item.comments}
+                                    </text>
+                                  </g>
+                                )
+                              })}
+                            </svg>
+                          </div>
+
+                          {/* 图例 */}
+                          <div className="flex gap-6 text-sm justify-center">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                              <span>帖子</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                              <span>评论</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })() : (
+                      <div className="text-center text-gray-500 py-8">正在加载数据...</div>
+                    )}
+                  </div>
+
+                {/* 用户统计 */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
+                    <div className="text-xs text-gray-400 mb-1">注册用户</div>
+                    <div className="text-3xl font-bold text-purple-400">{stats.totalUsers}</div>
+                  </div>
+                  <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
+                    <div className="text-xs text-gray-400 mb-1">总评论数</div>
+                    <div className="text-3xl font-bold text-green-400">{stats.totalComments}</div>
+                  </div>
+                  <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
+                    <div className="text-xs text-gray-400 mb-1">总帖子数</div>
+                    <div className="text-3xl font-bold text-blue-400">{stats.totalPosts}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Comments Management - 评论管理 */}
+            {activeTab === 'comments' && (
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-6">评论管理</h2>
+                
+                <div className="bg-neutral-900 rounded-lg border border-neutral-800">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-neutral-800 border-b border-neutral-700">
+                        <tr>
+                          <th className="text-left p-3 sm:p-4 font-medium text-gray-400">评论内容</th>
+                          <th className="text-left p-3 sm:p-4 font-medium text-gray-400 hidden sm:table-cell">作者</th>
+                          <th className="text-left p-3 sm:p-4 font-medium text-gray-400 hidden md:table-cell">所属帖子</th>
+                          <th className="text-left p-3 sm:p-4 font-medium text-gray-400 hidden lg:table-cell">时间</th>
+                          <th className="text-right p-3 sm:p-4 font-medium text-gray-400">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {comments.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="text-center text-gray-500 py-8">暂无评论</td>
+                          </tr>
+                        ) : (
+                          comments.map((comment) => (
+                            <tr key={comment.id} className="border-b border-neutral-800 hover:bg-neutral-800/50">
+                              <td className="p-3 sm:p-4">
+                                <div className="max-w-md truncate">{comment.content}</div>
+                                <div className="text-xs text-gray-500 mt-1 sm:hidden">
+                                  {comment.author_name} · {new Date(comment.created_at).toLocaleDateString()}
+                                </div>
+                              </td>
+                              <td className="p-3 sm:p-4 hidden sm:table-cell">{comment.author_name}</td>
+                              <td className="p-3 sm:p-4 hidden md:table-cell">
+                                <div className="max-w-xs truncate text-gray-400">{comment.post_title}</div>
+                              </td>
+                              <td className="p-3 sm:p-4 text-gray-400 hidden lg:table-cell">
+                                {new Date(comment.created_at).toLocaleString()}
+                              </td>
+                              <td className="p-3 sm:p-4 text-right">
+                                <button
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="text-red-400 hover:text-red-300 p-2 hover:bg-red-500/10 rounded transition-colors"
+                                  title="删除评论"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
