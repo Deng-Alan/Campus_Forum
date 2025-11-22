@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username TEXT UNIQUE NOT NULL,
   nickname TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
   avatar TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -27,8 +28,13 @@ CREATE POLICY "用户只能插入自己的信息" ON user_profiles
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.user_profiles (id, username, nickname)
-  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'nickname');
+  INSERT INTO public.user_profiles (id, username, nickname, email)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'username', NEW.email),
+    COALESCE(NEW.raw_user_meta_data->>'nickname', NEW.email),
+    NEW.email
+  );
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

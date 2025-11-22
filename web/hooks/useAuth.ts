@@ -69,18 +69,7 @@ export function useAuth() {
 
   const register = async (data: RegisterData): Promise<{ success: boolean; message: string }> => {
     try {
-      // 1. 先检查用户名是否存在
-      const { data: existing } = await supabase
-        .from('user_profiles')
-        .select('username')
-        .eq('username', data.username)
-        .single()
-      
-      if (existing) {
-        return { success: false, message: '用户名已存在' }
-      }
-
-      // 2. 使用 Supabase Auth 注册
+      // 使用 Supabase Auth 注册，触发器会自动创建 user_profile
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -93,50 +82,44 @@ export function useAuth() {
       })
 
       if (authError) {
+        // 处理常见错误
+        if (authError.message.includes('already registered')) {
+          return { success: false, message: '该邮箱已被注册' }
+        }
+        if (authError.message.includes('duplicate')) {
+          return { success: false, message: '用户名或邮箱已存在' }
+        }
         return { success: false, message: authError.message }
       }
 
-      // 3. 创建用户profile
-      if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: authData.user.id,
-            username: data.username,
-            nickname: data.nickname
-          })
-
-        if (profileError) {
-          return { success: false, message: '创建用户资料失败' }
-        }
+      if (!authData.user) {
+        return { success: false, message: '注册失败，请重试' }
       }
 
-      return { success: true, message: '注册成功' }
-    } catch (error) {
-      return { success: false, message: '注册失败，请重试' }
+      return { success: true, message: '注册成功！' }
+    } catch (error: any) {
+      console.error('Registration error:', error)
+      return { success: false, message: error.message || '注册失败，请重试' }
     }
   }
 
   const login = async (data: LoginData): Promise<{ success: boolean; message: string }> => {
     try {
-      // Supabase Auth 只支持邮箱登录，所以需要先查询用户名对应的邮箱
       let email = data.usernameOrEmail
       
       // 如果不包含@，说明是用户名，需要查询邮箱
       if (!email.includes('@')) {
         const { data: profile } = await supabase
           .from('user_profiles')
-          .select('id')
+          .select('email')
           .eq('username', data.usernameOrEmail)
           .single()
         
-        if (!profile) {
+        if (!profile || !profile.email) {
           return { success: false, message: '用户名不存在' }
         }
 
-        // 通过 user_id 获取邮箱（需要 RPC 或者直接用用户名登录）
-        // 简化处理：提示用户使用邮箱登录
-        return { success: false, message: '请使用邮箱登录' }
+        email = profile.email
       }
 
       const { error } = await supabase.auth.signInWithPassword({

@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import Cookies from 'js-cookie'
 
 export default function AdminLogin() {
-  const [email, setEmail] = useState('')
+  const [usernameOrEmail, setUsernameOrEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,6 +18,25 @@ export default function AdminLogin() {
     setLoading(true)
 
     try {
+      let email = usernameOrEmail
+      
+      // 如果不包含@，说明是用户名，需要查询邮箱
+      if (!email.includes('@')) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('email')
+          .eq('username', usernameOrEmail)
+          .single()
+        
+        if (!profile || !profile.email) {
+          setError('用户名不存在')
+          setLoading(false)
+          return
+        }
+
+        email = profile.email
+      }
+
       // 1. 使用 Supabase Auth 登录
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -25,7 +44,7 @@ export default function AdminLogin() {
       })
 
       if (authError) {
-        setError('邮箱或密码错误')
+        setError('用户名/邮箱或密码错误')
         setLoading(false)
         return
       }
@@ -63,13 +82,13 @@ export default function AdminLogin() {
         <h1 className="text-2xl font-bold mb-6 text-center">管理员登录</h1>
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">管理员邮箱</label>
+            <label className="block text-sm font-medium mb-1">用户名或邮箱</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={usernameOrEmail}
+              onChange={(e) => setUsernameOrEmail(e.target.value)}
               className="w-full bg-black border border-neutral-700 rounded p-2 focus:border-blue-500 outline-none"
-              placeholder="请输入管理员邮箱"
+              placeholder="请输入用户名或邮箱"
               required
               disabled={loading}
             />
@@ -95,7 +114,7 @@ export default function AdminLogin() {
             {loading ? '登录中...' : '登录'}
           </button>
           <p className="text-xs text-gray-500 mt-4 text-center">
-            使用 Supabase Auth 管理员账号登录
+            使用用户名或邮箱登录 · 支持 Supabase Auth
           </p>
         </form>
       </div>
