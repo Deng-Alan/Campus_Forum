@@ -1,11 +1,12 @@
 import { Post, PostType } from '@/types'
-import { Heart, Share2, MessageCircle, BookOpen, Laugh, GraduationCap, Check } from 'lucide-react'
+import { Heart, Share2, MessageCircle, BookOpen, Laugh, GraduationCap, Check, Flag } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import clsx from 'clsx'
 import { useState } from 'react'
 import { CommentSection } from './CommentSection'
 import { sharePost } from '@/lib/share-utils'
+import { supabase } from '@/lib/supabase'
 
 interface PostCardProps {
   post: Post
@@ -44,6 +45,23 @@ export function PostCard({ post, onLike }: PostCardProps) {
       alert(result.message)
     }
   };
+
+  const handleReport = async () => {
+    const reason = window.prompt('请填写举报理由（如：广告、违规内容）：')
+    if (reason) {
+      try {
+        const { error } = await supabase
+          .from('reports')
+          .insert([{ post_id: post.id, reason }])
+        
+        if (error) throw error
+        alert('举报成功，管理员会尽快处理！')
+      } catch (e) {
+        console.error(e)
+        alert('举报提交失败')
+      }
+    }
+  }
   
   return (
     <div className={clsx(
@@ -107,6 +125,14 @@ export function PostCard({ post, onLike }: PostCardProps) {
         >
           {shareSuccess ? <Check size={18} /> : <Share2 size={18} />}
           <span>{shareSuccess ? '已复制' : '分享'}</span>
+        </button>
+
+        <button
+          onClick={handleReport}
+          className="flex items-center gap-1.5 hover:text-yellow-400 transition-colors ml-auto"
+          title="举报"
+        >
+          <Flag size={16} />
         </button>
       </div>
 

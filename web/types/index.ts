@@ -38,3 +38,23 @@ export interface CreateCommentDTO {
   content: string
   author_name: string
 }
+
+export interface Announcement {
+  id: string
+  title: string
+  content: string
+  is_top: boolean
+  type: 'notice' | 'activity' | 'urgent'
+  created_at: string
+}
+
+export interface Report {
+  id: string
+  post_id: string
+  reason: string
+  status: 'pending' | 'resolved' | 'ignored'
+  created_at: string
+  // 关联查询时可能用到
+  posts?: Post
+}
+

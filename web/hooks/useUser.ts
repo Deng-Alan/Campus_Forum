@@ -51,11 +51,30 @@ export function useUser() {
     return user.nickname || DEFAULT_NICKNAME
   }
 
+  // 记录发帖 ID
+  const addPostId = (postId: string) => {
+    const storedIds = localStorage.getItem('my_post_ids')
+    const ids = storedIds ? JSON.parse(storedIds) : []
+    if (!ids.includes(postId)) {
+      const newIds = [postId, ...ids]
+      localStorage.setItem('my_post_ids', JSON.stringify(newIds))
+    }
+  }
+
+  // 获取所有发帖 ID
+  const getPostIds = (): string[] => {
+    if (typeof window === 'undefined') return []
+    const storedIds = localStorage.getItem('my_post_ids')
+    return storedIds ? JSON.parse(storedIds) : []
+  }
+
   return {
     user,
     isLoaded,
     updateNickname,
     toggleAnonymous,
-    getDisplayName
+    getDisplayName,
+    addPostId,
+    getPostIds
   }
 }
