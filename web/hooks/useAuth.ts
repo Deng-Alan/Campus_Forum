@@ -93,6 +93,7 @@ export function useAuth() {
       username: data.username,
       nickname: data.nickname,
       email: data.email,
+      password: data.password, // 注意：实际应用应该加密存储
       createdAt: new Date().toISOString(),
     }
     
