@@ -88,7 +88,7 @@ export default function AdminLogin() {
               value={usernameOrEmail}
               onChange={(e) => setUsernameOrEmail(e.target.value)}
               className="w-full bg-black border border-neutral-700 rounded p-2 focus:border-blue-500 outline-none"
-              placeholder="AlanDeng 或 alandeng@admin.com"
+              placeholder="请输入用户名或邮箱"
               required
               disabled={loading}
             />
