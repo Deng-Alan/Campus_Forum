@@ -13,6 +13,7 @@ export interface Post {
   subject?: string // 用于学习互助
   is_best_answer?: boolean
   is_featured?: boolean // 用于表白墙精选
+  review_status?: 'pending' | 'approved' | 'rejected' // 审核状态
   comment_count?: number // 评论数量（可选，前端计算）
 }
 

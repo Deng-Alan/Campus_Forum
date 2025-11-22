@@ -9,10 +9,12 @@ import { supabase } from '@/lib/supabase'
 import { Post, CreatePostDTO, Announcement } from '@/types'
 import clsx from 'clsx'
 import { useUser } from '@/hooks/useUser'
+import { useAuth } from '@/hooks/useAuth'
 import Link from 'next/link'
 
 export default function Home() {
   const { addPostId } = useUser()
+  const { isLoggedIn, user, logout } = useAuth()
   const [posts, setPosts] = useState<Post[]>([])
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,6 +23,23 @@ export default function Home() {
   useEffect(() => {
     fetchPosts(activeTab)
     fetchAnnouncements()
+
+    const postIntervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchPosts(activeTab, { silent: true })
+      }
+    }, 20000)
+
+    const annIntervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchAnnouncements()
+      }
+    }, 30000)
+
+    return () => {
+      clearInterval(postIntervalId)
+      clearInterval(annIntervalId)
+    }
   }, [activeTab])
 
   const fetchAnnouncements = async () => {
@@ -40,12 +59,15 @@ export default function Home() {
     }
   }
 
-  const fetchPosts = async (type: string) => {
-    setLoading(true)
+  const fetchPosts = async (type: string, options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true)
+    }
     try {
       let query = supabase
         .from('posts')
         .select('*')
+        .eq('review_status', 'approved')
         .order('is_featured', { ascending: false })
         .order('created_at', { ascending: false })
 
@@ -65,7 +87,9 @@ export default function Home() {
       console.error('Unexpected error:', err)
       setPosts(MOCK_POSTS)
     } finally {
-      setLoading(false)
+      if (!options?.silent) {
+        setLoading(false)
+      }
     }
   }
 
@@ -83,7 +107,8 @@ export default function Home() {
       type: data.type,
       subject: data.subject,
       image_url: data.image_url,
-      likes: 0
+      likes: 0,
+      review_status: 'pending' as const,
     }
 
     try {
@@ -100,6 +125,7 @@ export default function Home() {
           addPostId(newPosts[0].id)
         }
         localStorage.setItem('last_post_time', Date.now().toString())
+        alert('发布成功，已提交审核。审核通过后才会在首页显示。')
         fetchPosts(activeTab)
       }
     } catch (err) {
@@ -108,6 +134,11 @@ export default function Home() {
   }
 
   const handleLike = async (postId: string) => {
+    if (!isLoggedIn) {
+      alert('请先登录后再点赞')
+      return
+    }
+
     setPosts(posts.map(post => 
       post.id === postId ? { ...post, likes: post.likes + 1 } : post
     ))
@@ -140,7 +171,7 @@ export default function Home() {
       <nav className="sticky top-0 z-10 bg-[#121212]/80 backdrop-blur border-b border-white/10 mb-6">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="font-bold text-[#0066CC] text-lg">武冈三中论坛</div>
-          <div className="flex gap-4 text-sm text-gray-400">
+          <div className="flex gap-4 items-center text-sm text-gray-400">
             {navItems.map(item => (
               <button
                 key={item.id}
@@ -159,6 +190,26 @@ export default function Home() {
             >
               我的
             </Link>
+            {isLoggedIn ? (
+              <div className="flex items-center gap-3 ml-4 text-xs">
+                <span className="text-gray-400">已登录：<span className="text-gray-100">{user?.username}</span></span>
+                <button
+                  onClick={logout}
+                  className="px-2 py-1 rounded border border-white/20 text-red-400 hover:bg-white/10"
+                >
+                  退出
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 ml-4 text-xs">
+                <Link href="/login" className="hover:text-white">
+                  登录
+                </Link>
+                <Link href="/register" className="hover:text-white">
+                  注册
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </nav>
@@ -179,7 +230,28 @@ export default function Home() {
             </p>
           </header>
 
-          <CreatePost onSubmit={handleCreatePost} />
+          {isLoggedIn ? (
+            <CreatePost onSubmit={handleCreatePost} />
+          ) : (
+            <div className="mb-8 bg-neutral-900 p-4 rounded-lg border border-white/10">
+              <div className="text-sm text-gray-200 mb-2">登录后才能发帖和点赞。</div>
+              <div className="text-xs text-gray-500 mb-3">当前为本地模拟账号系统，仅在本浏览器内生效。</div>
+              <div className="flex gap-3">
+                <Link
+                  href="/login"
+                  className="px-3 py-1.5 rounded bg-[#0066CC] text-xs text-white hover:bg-[#1a7be0]"
+                >
+                  去登录
+                </Link>
+                <Link
+                  href="/register"
+                  className="px-3 py-1.5 rounded border border-white/20 text-xs text-gray-200 hover:bg-white/10"
+                >
+                  去注册
+                </Link>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-4">
             {loading ? (
