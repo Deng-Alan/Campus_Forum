@@ -1,0 +1,25 @@
+{
+  "name": "武冈三中校园论坛",
+  "short_name": "校园论坛",
+  "description": "武冈三中官方校园论坛 - 校园趣事、学习互助、表白墙、匿名树洞",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["education", "social"],
+  "lang": "zh-CN",
+  "dir": "ltr"
+}
