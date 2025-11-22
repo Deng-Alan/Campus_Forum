@@ -11,7 +11,7 @@ export default function LoginPage() {
   const [usernameOrEmail, setUsernameOrEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!usernameOrEmail.trim()) {
       alert('请输入用户名或邮箱')
@@ -22,7 +22,7 @@ export default function LoginPage() {
       return
     }
     
-    const result = login({ usernameOrEmail, password })
+    const result = await login({ usernameOrEmail, password })
     if (result.success) {
       router.push('/')
     } else {

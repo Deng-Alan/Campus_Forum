@@ -29,7 +29,7 @@ export function UserSettings() {
   }, [authUser])
 
 
-  const handleSaveUsername = () => {
+  const handleSaveUsername = async () => {
     if (!tempUsername.trim()) {
       alert('用户名不能为空')
       return
@@ -38,14 +38,14 @@ export function UserSettings() {
       alert('用户名至少需要3个字符')
       return
     }
-    const result = updateUsername(tempUsername)
+    const result = await updateUsername(tempUsername)
     alert(result.message)
     if (result.success) {
       setEditingField(null)
     }
   }
 
-  const handleSaveNickname = () => {
+  const handleSaveNickname = async () => {
     if (!tempNickname.trim()) {
       alert('昵称不能为空')
       return
@@ -54,14 +54,14 @@ export function UserSettings() {
       alert('昵称至少需要2个字符')
       return
     }
-    const result = updateNickname(tempNickname)
+    const result = await updateNickname(tempNickname)
     alert(result.message)
     if (result.success) {
       setEditingField(null)
     }
   }
 
-  const handleSavePassword = () => {
+  const handleSavePassword = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
       alert('请填写完整信息')
       return
@@ -74,7 +74,7 @@ export function UserSettings() {
       alert('两次输入的新密码不一致')
       return
     }
-    const result = updatePassword(oldPassword, newPassword)
+    const result = await updatePassword(oldPassword, newPassword)
     alert(result.message)
     if (result.success) {
       setEditingField(null)

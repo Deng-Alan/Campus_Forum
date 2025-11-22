@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 
 export interface AuthUser {
-  userId: string // 唯一标识符
-  username: string // 用户名（登录用）
-  nickname: string // 昵称（显示用）
-  email: string // 邮箱
-  password: string // 密码（简单加密）
+  userId: string
+  username: string
+  nickname: string
+  email: string
   avatar?: string
-  createdAt: string
 }
 
 export interface RegisterData {
@@ -22,162 +21,213 @@ export interface LoginData {
   password: string
 }
 
-const AUTH_STORAGE_KEY = 'campus_forum_auth_user'
-const USERS_STORAGE_KEY = 'campus_forum_users'
-
-// 生成唯一用户ID
-function generateUserId(): string {
-  return 'user_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
-}
-
-// 获取所有注册用户
-function getAllUsers(): AuthUser[] {
-  try {
-    const stored = localStorage.getItem(USERS_STORAGE_KEY)
-    return stored ? JSON.parse(stored) : []
-  } catch (e) {
-    return []
-  }
-}
-
-// 保存用户到用户列表
-function saveUser(user: AuthUser) {
-  const users = getAllUsers()
-  users.push(user)
-  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
-}
-
-// 更新用户信息
-function updateUserInList(updatedUser: AuthUser) {
-  const users = getAllUsers()
-  const index = users.findIndex(u => u.userId === updatedUser.userId)
-  if (index !== -1) {
-    users[index] = updatedUser
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
-  }
-}
-
 export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(AUTH_STORAGE_KEY)
-      if (stored) {
-        setUser(JSON.parse(stored))
+    // 获取当前会话
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        loadUserProfile(session.user.id)
+      } else {
+        setIsLoaded(true)
       }
-    } catch (e) {
-      console.error('Failed to load auth user:', e)
-    } finally {
-      setIsLoaded(true)
-    }
+    })
+
+    // 监听认证状态变化
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        loadUserProfile(session.user.id)
+      } else {
+        setUser(null)
+        setIsLoaded(true)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  const register = (data: RegisterData): { success: boolean; message: string } => {
-    const users = getAllUsers()
-    
-    // 检查用户名是否已存在
-    if (users.some(u => u.username === data.username)) {
-      return { success: false, message: '用户名已存在' }
+  const loadUserProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (data && !error) {
+      setUser({
+        userId: data.id,
+        username: data.username,
+        nickname: data.nickname,
+        email: '', // Supabase Auth 管理邮箱
+        avatar: data.avatar
+      })
     }
-    
-    // 检查邮箱是否已存在
-    if (users.some(u => u.email === data.email)) {
-      return { success: false, message: '邮箱已被注册' }
-    }
-    
-    // 创建新用户
-    const newUser: AuthUser = {
-      userId: generateUserId(),
-      username: data.username,
-      nickname: data.nickname,
-      email: data.email,
-      password: data.password, // 注意：实际应用应该加密存储
-      createdAt: new Date().toISOString(),
-    }
-    
-    // 保存到用户列表
-    saveUser(newUser)
-    
-    // 注册后自动登录
-    setUser(newUser)
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser))
-    
-    return { success: true, message: '注册成功' }
+    setIsLoaded(true)
   }
 
-  const login = (data: LoginData): { success: boolean; message: string } => {
-    const users = getAllUsers()
-    
-    // 查找用户（支持用户名或邮箱登录）
-    const foundUser = users.find(
-      u => u.username === data.usernameOrEmail || u.email === data.usernameOrEmail
-    )
-    
-    if (!foundUser) {
-      return { success: false, message: '用户名或邮箱不存在' }
+  const register = async (data: RegisterData): Promise<{ success: boolean; message: string }> => {
+    try {
+      // 1. 先检查用户名是否存在
+      const { data: existing } = await supabase
+        .from('user_profiles')
+        .select('username')
+        .eq('username', data.username)
+        .single()
+      
+      if (existing) {
+        return { success: false, message: '用户名已存在' }
+      }
+
+      // 2. 使用 Supabase Auth 注册
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            nickname: data.nickname,
+            username: data.username
+          }
+        }
+      })
+
+      if (authError) {
+        return { success: false, message: authError.message }
+      }
+
+      // 3. 创建用户profile
+      if (authData.user) {
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: authData.user.id,
+            username: data.username,
+            nickname: data.nickname
+          })
+
+        if (profileError) {
+          return { success: false, message: '创建用户资料失败' }
+        }
+      }
+
+      return { success: true, message: '注册成功' }
+    } catch (error) {
+      return { success: false, message: '注册失败，请重试' }
     }
-    
-    // 注意：这里简化了密码验证，实际应用应该有密码字段
-    setUser(foundUser)
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(foundUser))
-    
-    return { success: true, message: '登录成功' }
   }
 
-  const logout = () => {
+  const login = async (data: LoginData): Promise<{ success: boolean; message: string }> => {
+    try {
+      // Supabase Auth 只支持邮箱登录，所以需要先查询用户名对应的邮箱
+      let email = data.usernameOrEmail
+      
+      // 如果不包含@，说明是用户名，需要查询邮箱
+      if (!email.includes('@')) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('username', data.usernameOrEmail)
+          .single()
+        
+        if (!profile) {
+          return { success: false, message: '用户名不存在' }
+        }
+
+        // 通过 user_id 获取邮箱（需要 RPC 或者直接用用户名登录）
+        // 简化处理：提示用户使用邮箱登录
+        return { success: false, message: '请使用邮箱登录' }
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: data.password
+      })
+
+      if (error) {
+        return { success: false, message: '邮箱或密码错误' }
+      }
+
+      return { success: true, message: '登录成功' }
+    } catch (error) {
+      return { success: false, message: '登录失败，请重试' }
+    }
+  }
+
+  const logout = async () => {
+    await supabase.auth.signOut()
     setUser(null)
-    localStorage.removeItem(AUTH_STORAGE_KEY)
   }
 
-  const updateAvatar = (avatarUrl: string) => {
-    if (user) {
-      const updatedUser = { ...user, avatar: avatarUrl }
-      setUser(updatedUser)
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser))
-      updateUserInList(updatedUser)
+  const updateAvatar = async (avatarUrl: string) => {
+    if (!user) return
+    
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ avatar: avatarUrl })
+      .eq('id', user.userId)
+
+    if (!error) {
+      setUser({ ...user, avatar: avatarUrl })
     }
   }
 
-  const updateUsername = (newUsername: string): { success: boolean; message: string } => {
+  const updateUsername = async (newUsername: string): Promise<{ success: boolean; message: string }> => {
     if (!user) return { success: false, message: '未登录' }
     
-    const users = getAllUsers()
-    // 检查新用户名是否已被占用
-    if (users.some(u => u.username === newUsername && u.userId !== user.userId)) {
+    // 检查用户名是否已被占用
+    const { data: existing } = await supabase
+      .from('user_profiles')
+      .select('username')
+      .eq('username', newUsername)
+      .neq('id', user.userId)
+      .single()
+    
+    if (existing) {
       return { success: false, message: '用户名已被占用' }
     }
-    
-    const updatedUser = { ...user, username: newUsername }
-    setUser(updatedUser)
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser))
-    updateUserInList(updatedUser)
+
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ username: newUsername })
+      .eq('id', user.userId)
+
+    if (error) {
+      return { success: false, message: '更新失败' }
+    }
+
+    setUser({ ...user, username: newUsername })
     return { success: true, message: '用户名更新成功' }
   }
 
-  const updateNickname = (newNickname: string): { success: boolean; message: string } => {
+  const updateNickname = async (newNickname: string): Promise<{ success: boolean; message: string }> => {
     if (!user) return { success: false, message: '未登录' }
     
-    const updatedUser = { ...user, nickname: newNickname }
-    setUser(updatedUser)
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser))
-    updateUserInList(updatedUser)
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ nickname: newNickname })
+      .eq('id', user.userId)
+
+    if (error) {
+      return { success: false, message: '更新失败' }
+    }
+
+    setUser({ ...user, nickname: newNickname })
     return { success: true, message: '昵称更新成功' }
   }
 
-  const updatePassword = (oldPassword: string, newPassword: string): { success: boolean; message: string } => {
+  const updatePassword = async (oldPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
     if (!user) return { success: false, message: '未登录' }
     
-    // 验证旧密码
-    if (user.password !== oldPassword) {
-      return { success: false, message: '原密码错误' }
+    // Supabase Auth 更新密码
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    })
+
+    if (error) {
+      return { success: false, message: '密码更新失败' }
     }
-    
-    const updatedUser = { ...user, password: newPassword }
-    setUser(updatedUser)
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser))
-    updateUserInList(updatedUser)
+
     return { success: true, message: '密码更新成功' }
   }
 

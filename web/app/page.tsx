@@ -108,31 +108,40 @@ export default function Home() {
 
     // 每日发帖上限检查
     try {
-      // 从后端获取最新的发帖上限配置
+      // 1. 获取发帖上限配置
       const { data: settings } = await supabase
         .from('system_settings')
         .select('value')
         .eq('key', 'daily_post_limit')
         .single()
       
-      const dailyLimit = settings ? parseInt(settings.value) : 3 // 默认为 3
+      const dailyLimit = settings ? parseInt(settings.value) : 3
       
-      const todayStr = new Date().toLocaleDateString()
-      const countKey = `post_count_${todayStr}_${user.username}`
-      const currentCount = parseInt(localStorage.getItem(countKey) || '0')
+      // 2. 检查今日发帖次数 (使用 RPC 函数)
+      const { data: canPost, error: limitError } = await supabase
+        .rpc('check_daily_post_limit', {
+          p_user_id: user.userId,
+          p_limit: dailyLimit
+        })
 
-      if (currentCount >= dailyLimit) {
-        alert(`今日发帖已达上限 (${dailyLimit}条)，请明天再来分享吧！`)
+      if (limitError || !canPost) {
+        // 获取当前已发帖数
+        const { data: currentCount } = await supabase
+          .rpc('get_daily_post_count', { p_user_id: user.userId })
+        
+        alert(`今日发帖已达上限 (${currentCount || dailyLimit}/${dailyLimit}条)，请明天再来分享吧！`)
         return
       }
 
+      // 3. 创建帖子，关联 user_id
       const newPost = {
         content: data.content,
         author_name: data.author_name,
         type: data.type,
         subject: data.subject,
         image_url: data.image_url,
-        avatar_url: user.avatar, // 带上用户头像
+        avatar_url: user.avatar,
+        user_id: user.userId, // 关联用户ID
         likes: 0,
         review_status: 'pending' as const,
       }
@@ -146,14 +155,16 @@ export default function Home() {
         console.error('Error creating post:', error)
         alert('发布失败：' + error.message)
       } else {
-        if (newPosts && newPosts[0]) {
-          addPostId(newPosts[0].id)
-        }
+        // 4. 增加今日发帖计数 (使用 RPC 函数)
+        await supabase.rpc('increment_daily_post_count', {
+          p_user_id: user.userId
+        })
         
-        // 更新今日发帖计数
-        localStorage.setItem(countKey, (currentCount + 1).toString())
+        // 5. 获取更新后的计数
+        const { data: newCount } = await supabase
+          .rpc('get_daily_post_count', { p_user_id: user.userId })
         
-        alert(`发布成功！(今日已发 ${currentCount + 1}/${dailyLimit})，已提交审核。`)
+        alert(`发布成功！(今日已发 ${newCount || 1}/${dailyLimit})，已提交审核。`)
         fetchPosts(activeTab)
       }
     } catch (err) {

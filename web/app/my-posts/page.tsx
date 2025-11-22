@@ -25,17 +25,19 @@ export default function MyPosts() {
   const fetchMyPosts = async () => {
     setLoading(true)
     try {
-      const myIds = getPostIds()
+      // 从 useAuth 获取当前用户
+      const { user } = useAuth()
       
-      if (myIds.length === 0) {
+      if (!user) {
         setLoading(false)
         return
       }
 
+      // 直接从数据库查询当前用户的帖子
       const { data, error } = await supabase
         .from('posts')
         .select('*')
-        .in('id', myIds)
+        .eq('user_id', user.userId)
         .order('created_at', { ascending: false })
 
       if (error) {

@@ -14,7 +14,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     // 验证邮箱格式
@@ -45,7 +45,7 @@ export default function RegisterPage() {
     }
     
     // 注册
-    const result = register({ email, username, nickname, password })
+    const result = await register({ email, username, nickname, password })
     if (result.success) {
       alert(result.message)
       router.push('/')

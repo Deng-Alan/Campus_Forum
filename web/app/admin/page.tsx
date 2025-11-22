@@ -283,9 +283,10 @@ export default function AdminDashboard() {
         .from('comments')
         .select('*', { head: true, count: 'exact' })
       
-      // 获取用户总数 (从 localStorage 用户列表)
-      const usersData = localStorage.getItem('campus_forum_users')
-      const usersCount = usersData ? JSON.parse(usersData).length : 0
+      // 获取用户总数 (从 user_profiles 表)
+      const { count: usersCount } = await supabase
+        .from('user_profiles')
+        .select('*', { head: true, count: 'exact' })
 
       setStats({
         totalPosts: totalPosts || 0,
@@ -295,7 +296,7 @@ export default function AdminDashboard() {
         announcements: announcementsCount || 0,
         pendingReports: pendingReports || 0,
         totalComments: commentsCount || 0,
-        totalUsers: usersCount,
+        totalUsers: usersCount || 0,
       })
     } catch (error) {
       console.error('Error fetching admin stats:', error)
