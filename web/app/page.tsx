@@ -254,28 +254,30 @@ export default function Home() {
 
           {/* 移动端导航 */}
           <div className="flex md:hidden items-center gap-2">
-            <Link href="/my-posts" className="p-2 hover:bg-white/10 rounded-lg">
-              {isLoggedIn && user?.avatar ? (
-                <img 
-                  src={user.avatar} 
-                  alt={user.nickname}
-                  className="w-7 h-7 rounded-full object-cover border border-white/20"
-                />
-              ) : isLoggedIn ? (
-                <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold border border-white/20">
-                  {user?.nickname?.charAt(0)}
-                </div>
-              ) : (
-                <div className="flex gap-2 text-xs">
-                  <Link href="/login" className="text-gray-400 hover:text-white px-2 py-1">
-                    登录
-                  </Link>
-                  <Link href="/register" className="text-gray-400 hover:text-white px-2 py-1">
-                    注册
-                  </Link>
-                </div>
-              )}
-            </Link>
+            {isLoggedIn ? (
+              <Link href="/my-posts" className="p-2 hover:bg-white/10 rounded-lg">
+                {user?.avatar ? (
+                  <img 
+                    src={user.avatar} 
+                    alt={user.nickname}
+                    className="w-7 h-7 rounded-full object-cover border border-white/20"
+                  />
+                ) : (
+                  <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold border border-white/20">
+                    {user?.nickname?.charAt(0)}
+                  </div>
+                )}
+              </Link>
+            ) : (
+              <div className="flex gap-2 text-xs">
+                <Link href="/login" className="text-gray-400 hover:text-white px-2 py-1">
+                  登录
+                </Link>
+                <Link href="/register" className="text-gray-400 hover:text-white px-2 py-1">
+                  注册
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
