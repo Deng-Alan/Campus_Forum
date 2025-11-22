@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { PostCard } from '@/components/PostCard'
+import { UserSettings } from '@/components/UserSettings'
 import { supabase } from '@/lib/supabase'
 import { Post } from '@/types'
 import { useUser } from '@/hooks/useUser'
@@ -70,6 +71,9 @@ export default function MyPosts() {
             我的发帖历史
           </div>
         </div>
+
+        {/* 个人信息 */}
+        <UserSettings />
 
         {/* 帖子列表 */}
         <div className="space-y-4">

@@ -922,8 +922,7 @@ export default function AdminDashboard() {
               <div>
                 <h2 className="text-2xl font-bold mb-6">审核管理</h2>
                 <p className="text-sm text-gray-400 mb-4">
-                  这里显示所有 <span className="font-mono text-white">review_status = 'pending'</span>{' '}
-                  的帖子。 管理员可以选择通过、驳回或直接删除帖子。
+                  这里显示所有<span className="text-yellow-400 font-medium">等待审核</span>的帖子，管理员可以选择通过、驳回或直接删除。
                 </p>
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div className="flex flex-wrap items-center gap-3">

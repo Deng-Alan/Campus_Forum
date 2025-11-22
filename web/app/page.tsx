@@ -6,7 +6,7 @@ import { CreatePost } from '@/components/CreatePost'
 import { Leaderboard } from '@/components/Leaderboard'
 import { UserSettings } from '@/components/UserSettings'
 import { supabase } from '@/lib/supabase'
-import { Post, CreatePostDTO, Announcement } from '@/types'
+import { Post, CreatePostDTO, Announcement, PostType } from '@/types'
 import clsx from 'clsx'
 import { useUser } from '@/hooks/useUser'
 import { useAuth } from '@/hooks/useAuth'
@@ -19,14 +19,19 @@ export default function Home() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'all' | 'campus_fun' | 'study_help' | 'confession' | 'anonymous'>('all')
+  const [subjectFilter, setSubjectFilter] = useState<string | null>(null) // 学科筛选
 
   useEffect(() => {
-    fetchPosts(activeTab)
+    // 切换 Tab 时重置学科筛选
+    if (activeTab !== 'study_help') {
+      setSubjectFilter(null)
+    }
+    fetchPosts(activeTab, { subject: subjectFilter })
     fetchAnnouncements()
 
     const postIntervalId = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        fetchPosts(activeTab, { silent: true })
+        fetchPosts(activeTab, { silent: true, subject: subjectFilter })
       }
     }, 20000)
 
@@ -40,7 +45,7 @@ export default function Home() {
       clearInterval(postIntervalId)
       clearInterval(annIntervalId)
     }
-  }, [activeTab])
+  }, [activeTab, subjectFilter])
 
   const fetchAnnouncements = async () => {
     try {
@@ -59,7 +64,7 @@ export default function Home() {
     }
   }
 
-  const fetchPosts = async (type: string, options?: { silent?: boolean }) => {
+  const fetchPosts = async (type: string, options?: { silent?: boolean; subject?: string | null }) => {
     if (!options?.silent) {
       setLoading(true)
     }
@@ -73,6 +78,11 @@ export default function Home() {
 
       if (type !== 'all') {
         query = query.eq('type', type)
+      }
+
+      // 如果是学习互助且选择了学科筛选
+      if (type === 'study_help' && options?.subject) {
+        query = query.eq('subject', options.subject)
       }
 
       const { data, error } = await query
@@ -96,14 +106,7 @@ export default function Home() {
   const handleCreatePost = async (data: CreatePostDTO) => {
     if (!user) return
 
-    // 1. 防刷屏限制 (60秒冷却)
-    const lastPostTime = localStorage.getItem('last_post_time')
-    if (lastPostTime && Date.now() - parseInt(lastPostTime) < 60000) {
-      alert('发帖太快了，歇一歇吧！')
-      return
-    }
-
-    // 2. 每日发帖上限检查
+    // 每日发帖上限检查
     try {
       // 从后端获取最新的发帖上限配置
       const { data: settings } = await supabase
@@ -129,6 +132,7 @@ export default function Home() {
         type: data.type,
         subject: data.subject,
         image_url: data.image_url,
+        avatar_url: user.avatar, // 带上用户头像
         likes: 0,
         review_status: 'pending' as const,
       }
@@ -146,8 +150,7 @@ export default function Home() {
           addPostId(newPosts[0].id)
         }
         
-        // 更新发帖时间和今日计数
-        localStorage.setItem('last_post_time', Date.now().toString())
+        // 更新今日发帖计数
         localStorage.setItem(countKey, (currentCount + 1).toString())
         
         alert(`发布成功！(今日已发 ${currentCount + 1}/${dailyLimit})，已提交审核。`)
@@ -180,6 +183,11 @@ export default function Home() {
     } catch (err) {
       console.error('Error liking post:', err)
     }
+  }
+
+  const handleDelete = (postId: string) => {
+    // 从列表中移除已删除的帖子
+    setPosts(posts.filter(post => post.id !== postId))
   }
 
   const navItems = [
@@ -255,8 +263,39 @@ export default function Home() {
             </p>
           </header>
 
+          {/* 学科筛选器（仅在学习互助板块显示） */}
+          {activeTab === 'study_help' && (
+            <div className="mb-6 flex gap-2 flex-wrap">
+              <button
+                onClick={() => setSubjectFilter(null)}
+                className={clsx(
+                  "px-3 py-1.5 text-sm rounded-full transition-colors",
+                  subjectFilter === null
+                    ? "bg-blue-600 text-white"
+                    : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
+                )}
+              >
+                全部学科
+              </button>
+              {['数学', '物理', '化学', '生物', '英语', '语文', '历史', '地理', '政治'].map(subject => (
+                <button
+                  key={subject}
+                  onClick={() => setSubjectFilter(subject)}
+                  className={clsx(
+                    "px-3 py-1.5 text-sm rounded-full transition-colors",
+                    subjectFilter === subject
+                      ? "bg-blue-600 text-white"
+                      : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
+                  )}
+                >
+                  {subject}
+                </button>
+              ))}
+            </div>
+          )}
+
           {isLoggedIn ? (
-            <CreatePost onSubmit={handleCreatePost} />
+            <CreatePost onSubmit={handleCreatePost} currentType={activeTab === 'all' ? 'campus_fun' : activeTab as PostType} />
           ) : (
             <div className="mb-8 bg-neutral-900 p-4 rounded-lg border border-white/10">
               <div className="text-sm text-gray-200 mb-2">登录后才能发帖和点赞。</div>
@@ -287,7 +326,7 @@ export default function Home() {
                   <div className="text-center text-gray-500 py-10">暂时没有帖子，快来发布第一条吧！</div>
                 )}
                 {posts.map(post => (
-                  <PostCard key={post.id} post={post} onLike={handleLike} />
+                  <PostCard key={post.id} post={post} onLike={handleLike} onDelete={handleDelete} />
                 ))}
               </>
             )}
@@ -296,9 +335,6 @@ export default function Home() {
 
         {/* 右侧侧边栏 (占 1/3) */}
         <div className="hidden md:block space-y-6">
-          {/* 用户设置组件 */}
-          <UserSettings />
-
           {/* 公告卡片 */}
           <div className="bg-neutral-900 border border-white/10 rounded-lg p-4">
              <h3 className="font-bold text-white mb-3">📢 校园公告</h3>

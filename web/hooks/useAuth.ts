@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 export interface AuthUser {
   username: string
+  avatar?: string
 }
 
 const AUTH_STORAGE_KEY = 'campus_forum_auth_user'
@@ -34,11 +35,20 @@ export function useAuth() {
     localStorage.removeItem(AUTH_STORAGE_KEY)
   }
 
+  const updateAvatar = (avatarUrl: string) => {
+    if (user) {
+      const updatedUser = { ...user, avatar: avatarUrl }
+      setUser(updatedUser)
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser))
+    }
+  }
+
   return {
     user,
     isLoaded,
     login,
     logout,
+    updateAvatar,
     isLoggedIn: !!user,
   }
 }

@@ -10,6 +10,7 @@ export interface Post {
   type: PostType
   student_id?: string // 匿名存储，用于防刷屏
   image_url?: string
+  avatar_url?: string // 用户头像
   subject?: string // 用于学习互助
   is_best_answer?: boolean
   is_featured?: boolean // 用于表白墙精选

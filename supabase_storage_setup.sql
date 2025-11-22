@@ -24,6 +24,11 @@ ON CONFLICT (id) DO NOTHING;
 -- 存储桶访问策略
 -- ================================================
 
+-- 删除旧策略（如果存在）
+DROP POLICY IF EXISTS "Allow public upload to posts folder" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public upload to avatars folder" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public read access" ON storage.objects;
+
 -- 策略 1：允许任何人上传图片到 posts 文件夹
 CREATE POLICY "Allow public upload to posts folder"
 ON storage.objects
@@ -31,7 +36,14 @@ FOR INSERT
 TO public
 WITH CHECK (bucket_id = 'images' AND (storage.foldername(name))[1] = 'posts');
 
--- 策略 2：允许任何人读取所有图片（公开访问）
+-- 策略 2：允许任何人上传头像到 avatars 文件夹
+CREATE POLICY "Allow public upload to avatars folder"
+ON storage.objects
+FOR INSERT
+TO public
+WITH CHECK (bucket_id = 'images' AND (storage.foldername(name))[1] = 'avatars');
+
+-- 策略 3：允许任何人读取所有图片（公开访问）
 CREATE POLICY "Allow public read access"
 ON storage.objects
 FOR SELECT

@@ -10,19 +10,13 @@ import clsx from 'clsx'
 
 interface CreatePostProps {
   onSubmit: (data: CreatePostDTO) => Promise<void>
+  currentType: PostType
 }
 
-const POST_TYPES: { id: PostType; label: string; desc: string }[] = [
-  { id: 'campus_fun', label: '校园趣事', desc: '分享食堂新菜、操场见闻' },
-  { id: 'study_help', label: '学习互助', desc: '数理化生问题解答' },
-  { id: 'confession', label: '表白墙', desc: '感谢同桌、祝福老师' },
-  { id: 'anonymous', label: '匿名树洞', desc: '吐槽作业、分享秘密' },
-]
-
-export function CreatePost({ onSubmit }: CreatePostProps) {
+export function CreatePost({ onSubmit, currentType }: CreatePostProps) {
   const { getDisplayName } = useUser()
   const [content, setContent] = useState('')
-  const [type, setType] = useState<PostType>('campus_fun')
+  const type = currentType // 使用传入的板块类型
   const [subject, setSubject] = useState('数学') // 默认数学
   const [imageUrl, setImageUrl] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -70,33 +64,18 @@ export function CreatePost({ onSubmit }: CreatePostProps) {
 
   return (
     <div className="mb-8 bg-neutral-900 p-4 rounded-lg border border-white/10">
-      {/* 顶部 Tab 切换 */}
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-        {POST_TYPES.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setType(t.id)}
-            className={clsx(
-              "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
-              type === t.id 
-                ? "bg-blue-600 text-white" 
-                : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <p className="text-xs text-gray-500 mb-3 ml-1">{POST_TYPES.find(t => t.id === type)?.desc}</p>
-
       <form onSubmit={handleSubmit}>
         <div className="relative">
             <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder={type === 'confession' ? "写下你想说的话..." : "分享你的校园新鲜事..."}
+                placeholder={
+                  type === 'campus_fun' ? "分享你的校园新鲜事..." :
+                  type === 'study_help' ? "写下你的问题，让同学们来帮助你..." :
+                  type === 'confession' ? "写下你想说的话，可以是感谢、祝福..." :
+                  type === 'anonymous' ? "这里只有你和树洞，说出你的秘密..." :
+                  "分享你的校园新鲜事..."
+                }
                 className={clsx(
                     "w-full bg-black border rounded-md p-3 text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 min-h-[100px] resize-y transition-colors",
                     filterFeedback.hasSensitive ? "border-red-500 focus:border-red-500" : "border-neutral-800"
