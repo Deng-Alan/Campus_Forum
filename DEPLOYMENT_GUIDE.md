@@ -47,6 +47,22 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 - 添加内容过滤函数和触发器
 - 创建点赞 RPC 函数
 
+#### 1️⃣-B 创建系统设置表（新增）
+复制 `supabase_settings.sql` 的内容，粘贴到 SQL Editor 中执行。
+
+**作用**：
+- 创建 `system_settings` 表
+- 设置每日发帖上限默认值为 3
+- 配置读写权限策略
+
+#### 1️⃣-C 创建后端内容过滤函数（新增）
+复制 `supabase_content_filter.sql` 的内容，粘贴到 SQL Editor 中执行。
+
+**作用**：
+- 创建 `replace_bad_words()` 函数（脏话过滤和友好词替换）
+- 创建 `check_sensitive_content()` 函数（敏感内容检测）
+- 自动触发器：在发帖时自动执行过滤，敏感内容自动驳回审核
+
 #### 2️⃣ 创建评论表
 复制 `supabase_comments.sql` 的内容，粘贴到 SQL Editor 中执行。
 

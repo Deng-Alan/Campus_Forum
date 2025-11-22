@@ -94,24 +94,45 @@ export default function Home() {
   }
 
   const handleCreatePost = async (data: CreatePostDTO) => {
-    // 简单的防刷屏限制 (前端 LocalStorage 模拟)
+    if (!user) return
+
+    // 1. 防刷屏限制 (60秒冷却)
     const lastPostTime = localStorage.getItem('last_post_time')
     if (lastPostTime && Date.now() - parseInt(lastPostTime) < 60000) {
       alert('发帖太快了，歇一歇吧！')
       return
     }
 
-    const newPost = {
-      content: data.content,
-      author_name: data.author_name,
-      type: data.type,
-      subject: data.subject,
-      image_url: data.image_url,
-      likes: 0,
-      review_status: 'pending' as const,
-    }
-
+    // 2. 每日发帖上限检查
     try {
+      // 从后端获取最新的发帖上限配置
+      const { data: settings } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'daily_post_limit')
+        .single()
+      
+      const dailyLimit = settings ? parseInt(settings.value) : 3 // 默认为 3
+      
+      const todayStr = new Date().toLocaleDateString()
+      const countKey = `post_count_${todayStr}_${user.username}`
+      const currentCount = parseInt(localStorage.getItem(countKey) || '0')
+
+      if (currentCount >= dailyLimit) {
+        alert(`今日发帖已达上限 (${dailyLimit}条)，请明天再来分享吧！`)
+        return
+      }
+
+      const newPost = {
+        content: data.content,
+        author_name: data.author_name,
+        type: data.type,
+        subject: data.subject,
+        image_url: data.image_url,
+        likes: 0,
+        review_status: 'pending' as const,
+      }
+
       const { data: newPosts, error } = await supabase
         .from('posts')
         .insert([newPost])
@@ -124,8 +145,12 @@ export default function Home() {
         if (newPosts && newPosts[0]) {
           addPostId(newPosts[0].id)
         }
+        
+        // 更新发帖时间和今日计数
         localStorage.setItem('last_post_time', Date.now().toString())
-        alert('发布成功，已提交审核。审核通过后才会在首页显示。')
+        localStorage.setItem(countKey, (currentCount + 1).toString())
+        
+        alert(`发布成功！(今日已发 ${currentCount + 1}/${dailyLimit})，已提交审核。`)
         fetchPosts(activeTab)
       }
     } catch (err) {

@@ -17,15 +17,19 @@ export function Leaderboard() {
   const [leaders, setLeaders] = useState<LeaderboardUser[]>([])
   const [loading, setLoading] = useState(true)
   const [daysFilter, setDaysFilter] = useState(7) // 默认查看最近 7 天
+  const [subjectFilter, setSubjectFilter] = useState<string | null>(null) // 学科筛选
 
   useEffect(() => {
     fetchLeaderboard()
-  }, [daysFilter])
+  }, [daysFilter, subjectFilter])
 
   const fetchLeaderboard = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase.rpc('get_study_leaderboard', { days_limit: daysFilter })
+      const { data, error } = await supabase.rpc('get_study_leaderboard', { 
+        days_limit: daysFilter,
+        subject_filter: subjectFilter 
+      })
       
       if (error) {
         console.error('Error fetching leaderboard:', error)
@@ -42,7 +46,7 @@ export function Leaderboard() {
 
   return (
     <div className="bg-neutral-900 border border-white/10 rounded-lg p-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-yellow-500">
           <Trophy size={20} />
           <h3 className="font-bold text-lg">学霸排行榜</h3>
@@ -58,6 +62,35 @@ export function Leaderboard() {
           <option value={30}>本月</option>
           <option value={365}>全年</option>
         </select>
+      </div>
+      
+      {/* 学科筛选 */}
+      <div className="flex gap-1.5 mb-4 flex-wrap">
+        <button
+          onClick={() => setSubjectFilter(null)}
+          className={clsx(
+            "px-2.5 py-1 text-xs rounded transition-colors",
+            subjectFilter === null 
+              ? "bg-blue-600 text-white" 
+              : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
+          )}
+        >
+          全部
+        </button>
+        {['数学', '物理', '化学', '生物', '英语', '语文'].map(subject => (
+          <button
+            key={subject}
+            onClick={() => setSubjectFilter(subject)}
+            className={clsx(
+              "px-2.5 py-1 text-xs rounded transition-colors",
+              subjectFilter === subject 
+                ? "bg-blue-600 text-white" 
+                : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
+            )}
+          >
+            {subject}
+          </button>
+        ))}
       </div>
       
       {loading ? (

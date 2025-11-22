@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 import { supabase } from '@/lib/supabase'
 import { Post, Announcement, Report } from '@/types'
-import { Trash2, LogOut, Megaphone, FileText, AlertTriangle, Check, X, Plus } from 'lucide-react'
+import { Trash2, LogOut, Megaphone, FileText, AlertTriangle, Check, X, Plus, Settings } from 'lucide-react'
 import clsx from 'clsx'
 
-type Tab = 'posts' | 'announcements' | 'reports' | 'moderation'
+type Tab = 'posts' | 'announcements' | 'reports' | 'moderation' | 'settings'
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('posts')
@@ -47,6 +47,9 @@ export default function AdminDashboard() {
   const [moderationLoadingId, setModerationLoadingId] = useState<string | null>(null)
   const [reportActionLoadingId, setReportActionLoadingId] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
+
+  // Settings State
+  const [systemSettings, setSystemSettings] = useState<{ daily_post_limit: string }>({ daily_post_limit: '3' })
 
   useEffect(() => {
     const token = Cookies.get('admin_token')
@@ -140,6 +143,15 @@ export default function AdminDashboard() {
 
         const { data } = await query
         setPosts(data || [])
+      } else if (activeTab === 'settings') {
+        const { data } = await supabase.from('system_settings').select('*')
+        if (data) {
+          const settingsMap: any = {}
+          data.forEach(item => {
+            settingsMap[item.key] = item.value
+          })
+          setSystemSettings(prev => ({ ...prev, ...settingsMap }))
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -285,6 +297,21 @@ export default function AdminDashboard() {
     setAnnouncements(announcements.map((a) => (a.id === item.id ? { ...a, is_top: !item.is_top } : a)))
   }
 
+  // --- Settings Actions ---
+  const handleUpdateSetting = async (key: string, value: string) => {
+    const { error } = await supabase
+      .from('system_settings')
+      .upsert({ key, value })
+      
+    if (error) {
+      alert('保存设置失败: ' + error.message)
+    } else {
+      setSystemSettings(prev => ({ ...prev, [key]: value }))
+      setActionMessage('设置已保存')
+      setTimeout(() => setActionMessage(null), 2000)
+    }
+  }
+
   // --- Report Actions ---
   const handleResolveReport = async (id: string, status: 'resolved' | 'ignored') => {
     const { error } = await supabase.from('reports').update({ status }).eq('id', id)
@@ -378,6 +405,17 @@ export default function AdminDashboard() {
             )}
           >
             <Check size={18} /> 审核管理
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={clsx(
+              'w-full flex items-center gap-3 px-4 py-3 rounded transition-colors',
+              activeTab === 'settings'
+                ? 'bg-[#0066CC] text-white'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white',
+            )}
+          >
+            <Settings size={18} /> 系统设置
           </button>
         </nav>
 
@@ -995,6 +1033,38 @@ export default function AdminDashboard() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+
+            {/* Settings Management */}
+            {activeTab === 'settings' && (
+              <div>
+                <h2 className="text-2xl font-bold mb-6">系统设置</h2>
+                <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6 max-w-xl">
+                  <div className="mb-6">
+                    <label className="block text-sm text-gray-400 mb-2">
+                      每日发帖上限 (次/账号)
+                    </label>
+                    <div className="flex gap-4">
+                      <input 
+                        type="number" 
+                        min="1"
+                        className="bg-black border border-neutral-700 rounded px-3 py-2 text-white w-32"
+                        value={systemSettings.daily_post_limit}
+                        onChange={(e) => setSystemSettings({...systemSettings, daily_post_limit: e.target.value})}
+                      />
+                      <button 
+                        onClick={() => handleUpdateSetting('daily_post_limit', systemSettings.daily_post_limit)}
+                        className="bg-[#0066CC] hover:bg-blue-600 text-white px-4 py-2 rounded text-sm"
+                      >
+                        保存设置
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      限制每个账号每天可以发布的帖子数量，防止刷屏。
+                    </p>
+                  </div>
                 </div>
               </div>
             )}

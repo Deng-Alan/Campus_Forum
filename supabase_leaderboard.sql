@@ -15,7 +15,10 @@
 -- - 按周统计（最近 7 天）
 -- ================================================
 
-CREATE OR REPLACE FUNCTION get_study_leaderboard(days_limit INT DEFAULT 7)
+CREATE OR REPLACE FUNCTION get_study_leaderboard(
+  days_limit INT DEFAULT 7,
+  subject_filter TEXT DEFAULT NULL
+)
 RETURNS TABLE (
   author_name TEXT,
   post_count BIGINT,
@@ -26,7 +29,7 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
   WITH study_posts AS (
-    -- 统计学习互助帖子
+    -- 统计学习互助帖子（支持按学科筛选）
     SELECT 
       p.author_name,
       COUNT(p.id) as post_count,
@@ -34,10 +37,11 @@ BEGIN
     FROM posts p
     WHERE p.type = 'study_help'
       AND p.created_at >= NOW() - INTERVAL '1 day' * days_limit
+      AND (subject_filter IS NULL OR p.subject = subject_filter)
     GROUP BY p.author_name
   ),
   study_comments AS (
-    -- 统计学习互助帖子下的评论
+    -- 统计学习互助帖子下的评论（支持按学科筛选）
     SELECT 
       c.author_name,
       COUNT(c.id) as comment_count,
@@ -46,6 +50,7 @@ BEGIN
     INNER JOIN posts p ON p.id = c.post_id
     WHERE p.type = 'study_help'
       AND c.created_at >= NOW() - INTERVAL '1 day' * days_limit
+      AND (subject_filter IS NULL OR p.subject = subject_filter)
     GROUP BY c.author_name
   ),
   combined_stats AS (
@@ -76,11 +81,17 @@ $$ LANGUAGE plpgsql;
 -- ================================================
 -- 2. 测试函数
 -- ================================================
--- 查询最近 7 天的学霸排行榜
+-- 查询最近 7 天的学霸排行榜（全部学科）
 -- SELECT * FROM get_study_leaderboard(7);
 
--- 查询最近 30 天的学霸排行榜
--- SELECT * FROM get_study_leaderboard(30);
+-- 查询最近 7 天的数学学霸排行榜
+-- SELECT * FROM get_study_leaderboard(7, '数学');
+
+-- 查询最近 7 天的物理学霸排行榜
+-- SELECT * FROM get_study_leaderboard(7, '物理');
+
+-- 查询最近 30 天的化学学霸排行榜
+-- SELECT * FROM get_study_leaderboard(30, '化学');
 
 -- ================================================
 -- 3. 创建物化视图（可选，用于性能优化）
