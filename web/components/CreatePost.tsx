@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Send, Image as ImageIcon, AlertCircle } from 'lucide-react'
-import { PostType, CreatePostDTO } from '@/types'
+import { Send, Image as ImageIcon, AlertCircle, Quote, X } from 'lucide-react'
+import { PostType, CreatePostDTO, Post } from '@/types'
 import { filterContent } from '@/lib/content-filter'
 import { ImageUpload } from './ImageUpload'
+import { QuotePostSelector } from './QuotePostSelector'
 import { useUser } from '@/hooks/useUser'
+import { useAuth } from '@/hooks/useAuth'
 import clsx from 'clsx'
 
 interface CreatePostProps {
@@ -15,11 +17,14 @@ interface CreatePostProps {
 
 export function CreatePost({ onSubmit, currentType }: CreatePostProps) {
   const { getDisplayName } = useUser()
+  const { user } = useAuth()
   const [content, setContent] = useState('')
   const type = currentType // 使用传入的板块类型
   const [subject, setSubject] = useState('数学') // 默认数学
   const [imageUrl, setImageUrl] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [quotedPost, setQuotedPost] = useState<Post | null>(null)
+  const [showQuoteSelector, setShowQuoteSelector] = useState(false)
   
   // 过滤反馈状态
   const [filterFeedback, setFilterFeedback] = useState<{ hasSensitive: boolean; replaced: string[] }>({ hasSensitive: false, replaced: [] })
@@ -52,11 +57,13 @@ export function CreatePost({ onSubmit, currentType }: CreatePostProps) {
         author_name: type === 'anonymous' || type === 'confession' ? '匿名同学' : getDisplayName(),
         type,
         image_url: imageUrl || undefined,
-        subject: type === 'study_help' ? subject : undefined
+        subject: type === 'study_help' ? subject : undefined,
+        quoted_post_id: quotedPost?.id
       })
       
       setContent('')
       setImageUrl('')
+      setQuotedPost(null)
     } finally {
       setIsSubmitting(false)
     }
@@ -99,6 +106,29 @@ export function CreatePost({ onSubmit, currentType }: CreatePostProps) {
             )}
         </div>
 
+        {/* 引用的帖子预览 */}
+        {quotedPost && (
+          <div className="mt-3 bg-neutral-800 border border-neutral-700 rounded p-3">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <Quote className="w-4 h-4 text-blue-400" />
+                <span className="text-xs text-gray-400">引用帖子</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuotedPost(null)}
+                className="p-1 hover:bg-neutral-700 rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="pl-6 border-l-2 border-blue-500">
+              <p className="text-sm text-gray-400 mb-1">{quotedPost.author_name}</p>
+              <p className="text-sm line-clamp-2">{quotedPost.content}</p>
+            </div>
+          </div>
+        )}
+
         {/* 额外字段区域 */}
         <div className="mt-3 space-y-3">
             {type === 'study_help' && (
@@ -123,7 +153,18 @@ export function CreatePost({ onSubmit, currentType }: CreatePostProps) {
             )}
         </div>
 
-        <div className="flex justify-end mt-4">
+        <div className="flex justify-between items-center mt-4">
+          {/* 引用按钮 */}
+          <button
+            type="button"
+            onClick={() => setShowQuoteSelector(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-full transition-colors text-sm"
+          >
+            <Quote size={16} />
+            引用帖子
+          </button>
+
+          {/* 发布按钮 */}
           <button
             type="submit"
             disabled={!content.trim() || isSubmitting || filterFeedback.hasSensitive}
@@ -133,6 +174,15 @@ export function CreatePost({ onSubmit, currentType }: CreatePostProps) {
             {isSubmitting ? '发布中...' : '发布'}
           </button>
         </div>
+
+        {/* 引用帖子选择器 */}
+        {showQuoteSelector && (
+          <QuotePostSelector
+            onSelect={setQuotedPost}
+            onClose={() => setShowQuoteSelector(false)}
+            currentUserId={user?.userId}
+          />
+        )}
       </form>
     </div>
   )

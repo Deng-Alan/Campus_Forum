@@ -16,6 +16,9 @@ export interface Post {
   is_featured?: boolean // 用于表白墙精选
   review_status?: 'pending' | 'approved' | 'rejected' // 审核状态
   comment_count?: number // 评论数量（可选，前端计算）
+  quoted_post_id?: string // 引用的帖子ID
+  quoted_post?: Post // 引用的帖子（关联查询）
+  status?: 'pending' | 'approved' | 'rejected' | 'removed' // 帖子状态
 }
 
 export interface CreatePostDTO {
@@ -24,6 +27,7 @@ export interface CreatePostDTO {
   type: PostType
   image_url?: string
   subject?: string
+  quoted_post_id?: string // 可选：引用的帖子ID
 }
 
 export interface Comment {
@@ -58,5 +62,48 @@ export interface Report {
   created_at: string
   // 关联查询时可能用到
   posts?: Post
+}
+
+// 申诉类型
+export interface Appeal {
+  id: string
+  post_id: string
+  user_id: string
+  reason: string
+  status: 'pending' | 'approved' | 'rejected'
+  admin_response?: string
+  admin_id?: string
+  created_at: string
+  updated_at: string
+  // 关联查询
+  posts?: Post
+}
+
+export interface CreateAppealDTO {
+  post_id: string
+  reason: string
+}
+
+// 建议类型
+export type SuggestionCategory = 'general' | 'feature' | 'bug' | 'improvement'
+export type SuggestionStatus = 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'implemented'
+
+export interface Suggestion {
+  id: string
+  user_id?: string
+  content: string
+  category: SuggestionCategory
+  status: SuggestionStatus
+  admin_response?: string
+  admin_id?: string
+  is_anonymous: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateSuggestionDTO {
+  content: string
+  category?: SuggestionCategory
+  is_anonymous?: boolean
 }
 

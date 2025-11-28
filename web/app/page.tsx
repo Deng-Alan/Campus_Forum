@@ -5,12 +5,15 @@ import { PostCard } from '@/components/PostCard'
 import { CreatePost } from '@/components/CreatePost'
 import { Leaderboard } from '@/components/Leaderboard'
 import { UserSettings } from '@/components/UserSettings'
+import { AppealDialog } from '@/components/AppealDialog'
+import { SuggestionDialog } from '@/components/SuggestionDialog'
 import { supabase } from '@/lib/supabase'
 import { Post, CreatePostDTO, Announcement, PostType } from '@/types'
 import clsx from 'clsx'
 import { useUser } from '@/hooks/useUser'
 import { useAuth } from '@/hooks/useAuth'
 import Link from 'next/link'
+import { MessageSquarePlus } from 'lucide-react'
 
 export default function Home() {
   const { addPostId } = useUser()
@@ -20,6 +23,9 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'all' | 'campus_fun' | 'study_help' | 'confession' | 'anonymous'>('all')
   const [subjectFilter, setSubjectFilter] = useState<string | null>(null) // 学科筛选
+  const [showSuggestion, setShowSuggestion] = useState(false)
+  const [showAppeal, setShowAppeal] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
 
   useEffect(() => {
     // 切换 Tab 时重置学科筛选
@@ -64,6 +70,11 @@ export default function Home() {
     }
   }
 
+  const handleAppeal = (post: Post) => {
+    setSelectedPost(post)
+    setShowAppeal(true)
+  }
+
   const fetchPosts = async (type: string, options?: { silent?: boolean; subject?: string | null }) => {
     if (!options?.silent) {
       setLoading(true)
@@ -71,7 +82,15 @@ export default function Home() {
     try {
       let query = supabase
         .from('posts')
-        .select('*')
+        .select(`
+          *,
+          quoted_post:quoted_post_id (
+            id,
+            content,
+            author_name,
+            created_at
+          )
+        `)
         .eq('review_status', 'approved')
         .order('is_featured', { ascending: false })
         .order('created_at', { ascending: false })
@@ -144,6 +163,7 @@ export default function Home() {
         user_id: user.userId, // 关联用户ID
         likes: 0,
         review_status: 'pending' as const,
+        quoted_post_id: (data as any).quoted_post_id,
       }
 
       const { data: newPosts, error } = await supabase
@@ -236,6 +256,13 @@ export default function Home() {
             >
               我的
             </Link>
+            <button
+              onClick={() => setShowSuggestion(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-600/10 hover:bg-green-600/20 text-xs text-green-400 border border-green-500/30 ml-1"
+            >
+              <MessageSquarePlus size={14} />
+              意见反馈
+            </button>
             {isLoggedIn ? (
               <div className="flex items-center gap-2 ml-4">
                 {user?.avatar ? (
@@ -392,7 +419,13 @@ export default function Home() {
                   <div className="text-center text-gray-500 py-10">暂时没有帖子，快来发布第一条吧！</div>
                 )}
                 {posts.map(post => (
-                  <PostCard key={post.id} post={post} onLike={handleLike} onDelete={handleDelete} />
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    onLike={handleLike}
+                    onDelete={handleDelete}
+                    onAppeal={handleAppeal}
+                  />
                 ))}
               </>
             )}
@@ -436,6 +469,26 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* 意见反馈对话框 */}
+      {showSuggestion && (
+        <SuggestionDialog
+          onClose={() => setShowSuggestion(false)}
+          onSuccess={() => {}}
+        />
+      )}
+
+      {/* 申诉对话框 */}
+      {showAppeal && selectedPost && (
+        <AppealDialog
+          post={selectedPost}
+          onClose={() => {
+            setShowAppeal(false)
+            setSelectedPost(null)
+          }}
+          onSuccess={() => fetchPosts(activeTab)}
+        />
+      )}
     </main>
   )
 }

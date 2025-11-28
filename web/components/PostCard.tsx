@@ -1,5 +1,5 @@
 import { Post, PostType } from '@/types'
-import { Heart, Share2, MessageCircle, BookOpen, Laugh, GraduationCap, Check, Flag, Trash2 } from 'lucide-react'
+import { Heart, Share2, MessageCircle, BookOpen, Laugh, GraduationCap, Check, Flag, Trash2, Quote, AlertCircle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import clsx from 'clsx'
@@ -15,6 +15,7 @@ interface PostCardProps {
   onLike?: (id: string) => void
   onDelete?: (id: string) => void
   currentUsername?: string
+  onAppeal?: (post: Post) => void
 }
 
 const TypeIcon = ({ type }: { type: PostType }) => {
@@ -35,7 +36,7 @@ const TypeLabel = ({ type, subject }: { type: PostType, subject?: string }) => {
   }
 }
 
-export function PostCard({ post, onLike, onDelete, currentUsername }: PostCardProps) {
+export function PostCard({ post, onLike, onDelete, currentUsername, onAppeal }: PostCardProps) {
   const { user } = useAuth()
   const { getDisplayName } = useUser()
   const isConfession = post.type === 'confession';
@@ -131,14 +132,32 @@ export function PostCard({ post, onLike, onDelete, currentUsername }: PostCardPr
           {new Date(post.created_at).toLocaleDateString()}
         </div>
       </div>
+
+      {/* 引用的帖子 */}
+      {post.quoted_post && (
+        <div className="mb-3 p-3 bg-neutral-800/50 border-l-4 border-blue-500 rounded">
+          <div className="flex items-center gap-2 mb-1">
+            <Quote className="w-4 h-4 text-blue-400" />
+            <span className="text-xs text-gray-400">引用自 {post.quoted_post.author_name}</span>
+          </div>
+          <p className="text-sm text-gray-300 line-clamp-2">
+            {post.quoted_post.content}
+          </p>
+        </div>
+      )}
       
       <p className="text-gray-200 mb-4 whitespace-pre-wrap leading-relaxed text-[15px]">
         {post.content}
       </p>
       
       {post.image_url && (
-        <div className="mb-4 rounded-lg overflow-hidden border border-white/5">
+        <div className="mb-4 rounded-lg overflow-hidden border border-white/5 relative">
           <img src={post.image_url} alt="Post content" className="w-full max-h-64 object-cover" />
+          {post.review_status === 'pending' && (
+            <div className="absolute top-2 right-2 bg-yellow-600 text-white text-xs px-2 py-1 rounded-full">
+              审核中
+            </div>
+          )}
         </div>
       )}
       
@@ -191,7 +210,36 @@ export function PostCard({ post, onLike, onDelete, currentUsername }: PostCardPr
             <Trash2 size={16} />
           </button>
         )}
+
+        {/* 申诉按钮（帖子被拒绝或下架时显示） */}
+        {(post.status === 'rejected' || post.status === 'removed') && isOwnPost && onAppeal && (
+          <button
+            onClick={() => onAppeal(post)}
+            className="flex items-center gap-1.5 hover:text-orange-400 transition-colors text-orange-500"
+            title="申诉"
+          >
+            <AlertCircle size={16} />
+            <span className="text-xs">申诉</span>
+          </button>
+        )}
       </div>
+
+      {/* 帖子状态提示 */}
+      {post.status === 'pending' && (
+        <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-xs text-yellow-400">
+          ⏳ 帖子审核中，暂时只有您可以看到
+        </div>
+      )}
+      {post.status === 'rejected' && (
+        <div className="mt-3 p-2 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400">
+          ❌ 帖子未通过审核 {onAppeal && <span>· 可以<button onClick={() => onAppeal(post)} className="underline">申诉</button></span>}
+        </div>
+      )}
+      {post.status === 'removed' && (
+        <div className="mt-3 p-2 bg-orange-500/10 border border-orange-500/20 rounded text-xs text-orange-400">
+          ⚠️ 帖子已被下架 {onAppeal && <span>· 可以<button onClick={() => onAppeal(post)} className="underline">申诉</button></span>}
+        </div>
+      )}
 
       {/* 评论区 */}
       <CommentSection postId={post.id} isOpen={showComments} />

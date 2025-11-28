@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { PostCard } from '@/components/PostCard'
 import { UserSettings } from '@/components/UserSettings'
+import { AppealDialog } from '@/components/AppealDialog'
 import { supabase } from '@/lib/supabase'
 import { Post } from '@/types'
 import { useUser } from '@/hooks/useUser'
@@ -13,21 +14,20 @@ import { ArrowLeft, History, LogOut } from 'lucide-react'
 
 export default function MyPosts() {
   const { getPostIds } = useUser()
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
   const router = useRouter()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
+  const [showAppeal, setShowAppeal] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
 
   useEffect(() => {
     fetchMyPosts()
-  }, [])
+  }, [user])
 
   const fetchMyPosts = async () => {
     setLoading(true)
     try {
-      // 从 useAuth 获取当前用户
-      const { user } = useAuth()
-      
       if (!user) {
         setLoading(false)
         return
@@ -36,7 +36,15 @@ export default function MyPosts() {
       // 直接从数据库查询当前用户的帖子
       const { data, error } = await supabase
         .from('posts')
-        .select('*')
+        .select(`
+          *,
+          quoted_post:quoted_post_id (
+            id,
+            content,
+            author_name,
+            created_at
+          )
+        `)
         .eq('user_id', user.userId)
         .order('created_at', { ascending: false })
 
@@ -62,6 +70,11 @@ export default function MyPosts() {
     } catch (e) {
       console.error(e)
     }
+  }
+
+  const handleAppeal = (post: Post) => {
+    setSelectedPost(post)
+    setShowAppeal(true)
   }
 
   return (
@@ -111,13 +124,30 @@ export default function MyPosts() {
             </div>
           ) : (
             <>
-              <p className="text-sm text-gray-400 mb-4">共找到 {posts.length} 条记录</p>
+              <p className="text.sm text-gray-400 mb-4">共找到 {posts.length} 条记录</p>
               {posts.map(post => (
-                <PostCard key={post.id} post={post} onLike={handleLike} />
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onLike={handleLike}
+                  onAppeal={handleAppeal}
+                />
               ))}
             </>
           )}
         </div>
+
+        {/* 申诉对话框 */}
+        {showAppeal && selectedPost && (
+          <AppealDialog
+            post={selectedPost}
+            onClose={() => {
+              setShowAppeal(false)
+              setSelectedPost(null)
+            }}
+            onSuccess={fetchMyPosts}
+          />
+        )}
       </div>
     </main>
   )
