@@ -57,10 +57,7 @@ export default function RegisterPage() {
   return (
     <main className="min-h-screen bg-[#121212] text-white flex items-center justify-center px-4">
       <div className="w-full max-w-sm bg-black/60 border border-white/10 rounded-xl p-6 shadow-xl">
-        <h1 className="text-xl font-bold mb-2 text-center">注册校园论坛账号</h1>
-        <p className="text-xs text-gray-400 mb-6 text-center">
-          本地模拟账号，仅当前浏览器有效
-        </p>
+        <h1 className="text-xl font-bold mb-6 text-center">注册校园论坛账号</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs text-gray-400 mb-1">邮箱</label>
@@ -125,9 +122,6 @@ export default function RegisterPage() {
         <div className="text-xs text-gray-400 mt-4 text-center">
           已有账号？
           <Link href="/login" className="text-[#4da3ff] hover:underline ml-1">去登录</Link>
-        </div>
-        <div className="text-[11px] text-gray-500 mt-4 text-center">
-          这是本地测试版账号系统，不会联网，也不会真正创建账号
         </div>
       </div>
     </main>

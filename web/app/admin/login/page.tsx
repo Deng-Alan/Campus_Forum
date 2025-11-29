@@ -114,7 +114,7 @@ export default function AdminLogin() {
             {loading ? '登录中...' : '登录'}
           </button>
           <p className="text-xs text-gray-500 mt-4 text-center">
-            支持用户名或邮箱登录 · Supabase Auth
+            仅限论坛管理员登录 · 支持用户名或邮箱
           </p>
         </form>
       </div>

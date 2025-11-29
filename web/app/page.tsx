@@ -391,8 +391,7 @@ export default function Home() {
             <CreatePost onSubmit={handleCreatePost} currentType={activeTab === 'all' ? 'campus_fun' : activeTab as PostType} />
           ) : (
             <div className="mb-6 md:mb-8 bg-neutral-900 p-3 sm:p-4 rounded-lg border border-white/10">
-              <div className="text-xs sm:text-sm text-gray-200 mb-2">登录后才能发帖和点赞。</div>
-              <div className="text-xs text-gray-500 mb-3">当前为本地模拟账号系统，仅在本浏览器内生效。</div>
+              <div className="text-xs sm:text-sm text-gray-200 mb-3">登录后才能发帖和点赞。</div>
               <div className="flex gap-2 sm:gap-3">
                 <Link
                   href="/login"
