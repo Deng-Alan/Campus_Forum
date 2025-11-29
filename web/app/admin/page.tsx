@@ -4,11 +4,20 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 import { supabase } from '@/lib/supabase'
-import { Post, Announcement, Report } from '@/types'
+import { Post, Announcement, Report, Appeal, Suggestion } from '@/types'
 import { Trash2, LogOut, Megaphone, FileText, AlertTriangle, Check, X, Plus, Settings, Menu, MessageSquare, TrendingUp } from 'lucide-react'
 import clsx from 'clsx'
 
-type Tab = 'dashboard' | 'posts' | 'announcements' | 'reports' | 'moderation' | 'comments' | 'settings'
+type Tab =
+  | 'dashboard'
+  | 'posts'
+  | 'announcements'
+  | 'reports'
+  | 'appeals'
+  | 'suggestions'
+  | 'moderation'
+  | 'comments'
+  | 'settings'
 
 interface Comment {
   id: string
@@ -30,6 +39,8 @@ export default function AdminDashboard() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [reports, setReports] = useState<Report[]>([])
   const [comments, setComments] = useState<Comment[]>([])
+  const [appeals, setAppeals] = useState<Appeal[]>([])
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [stats, setStats] = useState({
     totalPosts: 0,
     studyHelpPosts: 0,
@@ -42,11 +53,14 @@ export default function AdminDashboard() {
   })
   const [chartData, setChartData] = useState<any[]>([])
 
-  // Posts filters
+  // Filters
   const [postSearch, setPostSearch] = useState('')
   const [postTypeFilter, setPostTypeFilter] = useState<'all' | 'campus_fun' | 'study_help' | 'confession' | 'anonymous'>('all')
   const [postReviewFilter, setPostReviewFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all')
   const [reportStatusFilter, setReportStatusFilter] = useState<'all' | 'pending' | 'resolved' | 'ignored'>('all')
+  const [appealStatusFilter, setAppealStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
+  const [suggestionCategoryFilter, setSuggestionCategoryFilter] = useState<'all' | 'general' | 'feature' | 'bug' | 'improvement'>('all')
+  const [suggestionStatusFilter, setSuggestionStatusFilter] = useState<'all' | 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'implemented'>('all')
 
   // New Announcement State
   const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '', type: 'notice', is_top: false })
@@ -60,6 +74,8 @@ export default function AdminDashboard() {
   } | null>(null)
   const [moderationLoadingId, setModerationLoadingId] = useState<string | null>(null)
   const [reportActionLoadingId, setReportActionLoadingId] = useState<string | null>(null)
+  const [appealActionLoadingId, setAppealActionLoadingId] = useState<string | null>(null)
+  const [suggestionActionLoadingId, setSuggestionActionLoadingId] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
 
   // Settings State
@@ -84,7 +100,7 @@ export default function AdminDashboard() {
       clearInterval(intervalId)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, activeTab, postTypeFilter, postReviewFilter, postSearch])
+  }, [router, activeTab, postTypeFilter, postReviewFilter, postSearch, appealStatusFilter, suggestionCategoryFilter, suggestionStatusFilter])
 
   useEffect(() => {
     const token = Cookies.get('admin_token')
@@ -136,9 +152,46 @@ export default function AdminDashboard() {
         const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false })
         setAnnouncements(data || [])
       } else if (activeTab === 'reports') {
-        // 联表查询被举报的帖子信息
         const { data } = await supabase.from('reports').select('*, posts(*)').order('created_at', { ascending: false })
         setReports((data as any) || [])
+      } else if (activeTab === 'appeals') {
+        let query = supabase
+          .from('appeals')
+          .select(`
+            *,
+            posts:post_id (
+              id,
+              content,
+              author_name,
+              status,
+              review_status,
+              created_at
+            )
+          `)
+          .order('created_at', { ascending: false })
+
+        if (appealStatusFilter !== 'all') {
+          query = query.eq('status', appealStatusFilter)
+        }
+
+        const { data } = await query
+        setAppeals((data as any) || [])
+      } else if (activeTab === 'suggestions') {
+        let query = supabase
+          .from('suggestions')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (suggestionCategoryFilter !== 'all') {
+          query = query.eq('category', suggestionCategoryFilter)
+        }
+
+        if (suggestionStatusFilter !== 'all') {
+          query = query.eq('status', suggestionStatusFilter)
+        }
+
+        const { data } = await query
+        setSuggestions((data as any) || [])
       } else if (activeTab === 'moderation') {
         let query = supabase
           .from('posts')
@@ -179,7 +232,7 @@ export default function AdminDashboard() {
         setLoading(false)
       }
     }
-  }, [activeTab, postTypeFilter, postReviewFilter, postSearch])
+  }, [activeTab, postTypeFilter, postReviewFilter, postSearch, appealStatusFilter, suggestionCategoryFilter, suggestionStatusFilter])
 
   // 获取评论数据
   const fetchComments = useCallback(async () => {
@@ -300,6 +353,79 @@ export default function AdminDashboard() {
       })
     } catch (error) {
       console.error('Error fetching admin stats:', error)
+    }
+  }
+
+  // --- Appeals Actions ---
+  const handleAppealAction = async (appeal: Appeal, status: 'approved' | 'rejected') => {
+    const label = status === 'approved' ? '通过' : '驳回'
+    if (!confirm(`确定要${label}这条申诉吗？`)) return
+
+    const response = window.prompt('可选：填写给用户的回复（可留空）', appeal.admin_response || '') ?? ''
+
+    setAppealActionLoadingId(appeal.id)
+    try {
+      const { error } = await supabase.rpc('handle_appeal', {
+        p_appeal_id: appeal.id,
+        p_status: status,
+        p_admin_response: response || null,
+      })
+
+      if (error) {
+        alert(`${label}失败：` + error.message)
+        return
+      }
+
+      setAppeals(prev => prev.map(a => a.id === appeal.id ? { ...a, status, admin_response: response } : a))
+      setActionMessage(`已${label}该申诉`)
+      setTimeout(() => setActionMessage(null), 2000)
+    } catch (err) {
+      console.error('handleAppealAction error:', err)
+      alert(`${label}失败，请稍后重试`)
+    } finally {
+      setAppealActionLoadingId(null)
+    }
+  }
+
+  // --- Suggestions Actions ---
+  const handleSuggestionAction = async (
+    suggestion: Suggestion,
+    nextStatus: 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'implemented',
+  ) => {
+    const labelMap: Record<string, string> = {
+      pending: '待处理',
+      reviewing: '处理中',
+      accepted: '已采纳',
+      rejected: '已拒绝',
+      implemented: '已实现',
+    }
+
+    const label = labelMap[nextStatus] || nextStatus
+    if (!confirm(`确定将该建议标记为「${label}」吗？`)) return
+
+    const response = window.prompt('可选：填写给用户的反馈说明（可留空）', suggestion.admin_response || '') ?? ''
+
+    setSuggestionActionLoadingId(suggestion.id)
+    try {
+      const { error } = await supabase.rpc('handle_suggestion', {
+        p_suggestion_id: suggestion.id,
+        p_status: nextStatus,
+        p_admin_response: response || null,
+      })
+
+      if (error) {
+        alert('更新失败：' + error.message)
+        return
+      }
+
+      setSuggestions(prev => prev.map(s => s.id === suggestion.id ? { ...s, status: nextStatus, admin_response: response } : s))
+      setActionMessage(`已将建议标记为「${label}」`)
+      setTimeout(() => setActionMessage(null), 2000)
+    } catch (err) {
+      console.error('handleSuggestionAction error:', err)
+      alert('更新失败，请稍后重试')
+    } finally {
+      setSuggestionActionLoadingId(null)
     }
   }
 
@@ -556,6 +682,34 @@ export default function AdminDashboard() {
           </button>
           <button
             onClick={() => {
+              setActiveTab('appeals')
+              setSidebarOpen(false)
+            }}
+            className={clsx(
+              'w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded transition-colors text-sm sm:text-base',
+              activeTab === 'appeals'
+                ? 'bg-[#0066CC] text-white'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white',
+            )}
+          >
+            <Check size={18} /> 申诉管理
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('suggestions')
+              setSidebarOpen(false)
+            }}
+            className={clsx(
+              'w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded transition-colors text-sm sm:text-base',
+              activeTab === 'suggestions'
+                ? 'bg-[#0066CC] text.white'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white',
+            )}
+          >
+            <MessageSquare size={18} /> 建议反馈
+          </button>
+          <button
+            onClick={() => {
               setActiveTab('moderation')
               setSidebarOpen(false)
             }}
@@ -647,6 +801,274 @@ export default function AdminDashboard() {
               <div className="fixed top-4 right-4 z-50">
                 <div className="px-4 py-2 rounded-md border border-green-500 bg-black text-xs text-green-300 shadow-lg shadow-black/40">
                   {actionMessage}
+                </div>
+              </div>
+            )}
+
+            {/* Appeals Management */}
+            {activeTab === 'appeals' && (
+              <div>
+                <h2 className="text-2xl font-bold mb-4">申诉管理</h2>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4 text-xs text-gray-300">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span>共 {appeals.length} 条申诉</span>
+                  </div>
+                  <select
+                    className="bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-xs text-white"
+                    value={appealStatusFilter}
+                    onChange={(e) => setAppealStatusFilter(e.target.value as any)}
+                  >
+                    <option value="all">所有状态</option>
+                    <option value="pending">待处理</option>
+                    <option value="approved">已通过</option>
+                    <option value="rejected">已驳回</option>
+                  </select>
+                </div>
+
+                <div className="space-y-4">
+                  {appeals.map((appeal) => (
+                    <div key={appeal.id} className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+                      <div className="flex justify-between items-start gap-3 mb-3">
+                        <div className="space-y-1">
+                          <span
+                            className={clsx(
+                              'inline-flex items-center px-2 py-1 rounded text-xs font-bold',
+                              appeal.status === 'pending'
+                                ? 'bg-yellow-900 text-yellow-400'
+                                : appeal.status === 'approved'
+                                ? 'bg-green-900 text-green-400'
+                                : 'bg-red-900 text-red-400',
+                            )}
+                          >
+                            {appeal.status === 'pending'
+                              ? '待处理'
+                              : appeal.status === 'approved'
+                              ? '已通过'
+                              : '已驳回'}
+                          </span>
+                          <div className="text-xs text-gray-400">
+                            申诉时间：{new Date(appeal.created_at).toLocaleString()}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            用户ID：{appeal.user_id}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          申诉ID：{appeal.id}
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <div className="text-xs text-gray-400 mb-1">申诉理由：</div>
+                        <p className="text-sm text-gray-100 whitespace-pre-wrap">{appeal.reason}</p>
+                      </div>
+
+                      {appeal.posts && (
+                        <div className="mb-3 bg-black/30 border border-white/5 rounded p-3">
+                          <div className="text-xs text-gray-400 mb-1">
+                            原帖子 - {appeal.posts.author_name}
+                          </div>
+                          <p className="text-sm text-gray-200 line-clamp-2">{appeal.posts.content}</p>
+                          <div className="mt-1 text-xs text-gray-500">
+                            发帖时间：{new Date(appeal.posts.created_at).toLocaleString()}
+                          </div>
+                        </div>
+                      )}
+
+                      {appeal.admin_response && (
+                        <div className="mb-3 bg-blue-900/20 border border-blue-700/40 rounded p-3 text-xs text-blue-200">
+                          管理员回复：{appeal.admin_response}
+                        </div>
+                      )}
+
+                      {appeal.status === 'pending' && (
+                        <div className="flex justify-end gap-3 mt-2">
+                          <button
+                            onClick={() => handleAppealAction(appeal, 'rejected')}
+                            disabled={appealActionLoadingId === appeal.id}
+                            className={clsx(
+                              'px-3 py-1.5 text-xs rounded border border-yellow-600 text-yellow-400 hover:bg-yellow-900/30',
+                              appealActionLoadingId === appeal.id && 'opacity-60 cursor-not-allowed',
+                            )}
+                          >
+                            {appealActionLoadingId === appeal.id ? '处理中...' : '驳回申诉'}
+                          </button>
+                          <button
+                            onClick={() => handleAppealAction(appeal, 'approved')}
+                            disabled={appealActionLoadingId === appeal.id}
+                            className={clsx(
+                              'px-3 py-1.5 text-xs rounded bg-green-600 text-white hover:bg-green-500',
+                              appealActionLoadingId === appeal.id && 'opacity-60 cursor-not-allowed',
+                            )}
+                          >
+                            {appealActionLoadingId === appeal.id ? '处理中...' : '通过并恢复帖子'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {appeals.length === 0 && (
+                    <div className="text-center text-gray-500 py-10">暂无申诉记录</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Suggestions Management */}
+            {activeTab === 'suggestions' && (
+              <div>
+                <h2 className="text-2xl font-bold mb-4">建议管理</h2>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4 text-xs text-gray-300">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span>共 {suggestions.length} 条建议</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      className="bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-xs text-white"
+                      value={suggestionCategoryFilter}
+                      onChange={(e) => setSuggestionCategoryFilter(e.target.value as any)}
+                    >
+                      <option value="all">所有类型</option>
+                      <option value="feature">功能建议</option>
+                      <option value="bug">Bug 反馈</option>
+                      <option value="improvement">体验优化</option>
+                      <option value="general">其他</option>
+                    </select>
+                    <select
+                      className="bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-xs text-white"
+                      value={suggestionStatusFilter}
+                      onChange={(e) => setSuggestionStatusFilter(e.target.value as any)}
+                    >
+                      <option value="all">所有状态</option>
+                      <option value="pending">待处理</option>
+                      <option value="reviewing">处理中</option>
+                      <option value="accepted">已采纳</option>
+                      <option value="implemented">已实现</option>
+                      <option value="rejected">已拒绝</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {suggestions.map((s) => (
+                    <div key={s.id} className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+                      <div className="flex justify-between items-start gap-3 mb-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span
+                              className={clsx(
+                                'px-2 py-1 rounded font-bold',
+                                s.category === 'feature'
+                                  ? 'bg-blue-900 text-blue-300'
+                                  : s.category === 'bug'
+                                  ? 'bg-red-900 text-red-300'
+                                  : s.category === 'improvement'
+                                  ? 'bg-green-900 text-green-300'
+                                  : 'bg-gray-800 text-gray-300',
+                              )}
+                            >
+                              {s.category === 'feature'
+                                ? '功能建议'
+                                : s.category === 'bug'
+                                ? 'Bug 反馈'
+                                : s.category === 'improvement'
+                                ? '体验优化'
+                                : '其他建议'}
+                            </span>
+                            <span
+                              className={clsx(
+                                'px-2 py-1 rounded text-xs',
+                                s.status === 'pending'
+                                  ? 'bg-yellow-900 text-yellow-400'
+                                  : s.status === 'reviewing'
+                                  ? 'bg-blue-900 text-blue-300'
+                                  : s.status === 'accepted'
+                                  ? 'bg-green-900 text-green-300'
+                                  : s.status === 'implemented'
+                                  ? 'bg-emerald-900 text-emerald-300'
+                                  : 'bg-gray-800 text-gray-300',
+                              )}
+                            >
+                              {s.status === 'pending'
+                                ? '待处理'
+                                : s.status === 'reviewing'
+                                ? '处理中'
+                                : s.status === 'accepted'
+                                ? '已采纳'
+                                : s.status === 'implemented'
+                                ? '已实现'
+                                : '已拒绝'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {s.is_anonymous ? '匿名用户' : `用户ID：${s.user_id || '未知'}`}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            提交时间：{new Date(s.created_at).toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500">ID：{s.id}</div>
+                      </div>
+
+                      <p className="text-sm text-gray-100 whitespace-pre-wrap mb-2">{s.content}</p>
+
+                      {s.admin_response && (
+                        <div className="mb-2 bg-blue-900/20 border border-blue-700/40 rounded p-3 text-xs text-blue-200">
+                          管理员回复：{s.admin_response}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap justify-end gap-2 mt-2 text-xs">
+                        <button
+                          onClick={() => handleSuggestionAction(s, 'reviewing')}
+                          disabled={suggestionActionLoadingId === s.id}
+                          className={clsx(
+                            'px-3 py-1.5 rounded border border-blue-600 text-blue-300 hover:bg-blue-900/30',
+                            suggestionActionLoadingId === s.id && 'opacity-60 cursor-not-allowed',
+                          )}
+                        >
+                          {suggestionActionLoadingId === s.id ? '处理中...' : '标记处理中'}
+                        </button>
+                        <button
+                          onClick={() => handleSuggestionAction(s, 'accepted')}
+                          disabled={suggestionActionLoadingId === s.id}
+                          className={clsx(
+                            'px-3 py-1.5 rounded border border-green-600 text-green-300 hover:bg-green-900/30',
+                            suggestionActionLoadingId === s.id && 'opacity-60 cursor-not-allowed',
+                          )}
+                        >
+                          {suggestionActionLoadingId === s.id ? '处理中...' : '采纳建议'}
+                        </button>
+                        <button
+                          onClick={() => handleSuggestionAction(s, 'implemented')}
+                          disabled={suggestionActionLoadingId === s.id}
+                          className={clsx(
+                            'px-3 py-1.5 rounded border border-emerald-600 text-emerald-300 hover:bg-emerald-900/30',
+                            suggestionActionLoadingId === s.id && 'opacity-60 cursor-not-allowed',
+                          )}
+                        >
+                          {suggestionActionLoadingId === s.id ? '处理中...' : '标记已实现'}
+                        </button>
+                        <button
+                          onClick={() => handleSuggestionAction(s, 'rejected')}
+                          disabled={suggestionActionLoadingId === s.id}
+                          className={clsx(
+                            'px-3 py-1.5 rounded border border-red-600 text-red-300 hover:bg-red-900/30',
+                            suggestionActionLoadingId === s.id && 'opacity-60 cursor-not-allowed',
+                          )}
+                        >
+                          {suggestionActionLoadingId === s.id ? '处理中...' : '拒绝'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {suggestions.length === 0 && (
+                    <div className="text-center text-gray-500 py-10">暂无建议记录</div>
+                  )}
                 </div>
               </div>
             )}
