@@ -48,7 +48,7 @@ export async function copyToClipboard(text: string): Promise<ShareResult> {
 export function generatePostShareLink(postId: string): string {
   const baseUrl = typeof window !== 'undefined' 
     ? window.location.origin 
-    : 'http://localhost:3000'
+    : process.env.NEXT_PUBLIC_SITE_URL || 'https://campus-forum-iota.vercel.app'
   return `${baseUrl}/post/${postId}`
 }
 
