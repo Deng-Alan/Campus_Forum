@@ -78,6 +78,18 @@ export default function AdminDashboard() {
   const [suggestionActionLoadingId, setSuggestionActionLoadingId] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
 
+  const [appealDialogOpen, setAppealDialogOpen] = useState(false)
+  const [appealDialogTarget, setAppealDialogTarget] = useState<Appeal | null>(null)
+  const [appealDialogAction, setAppealDialogAction] = useState<'approved' | 'rejected' | null>(null)
+  const [appealDialogResponse, setAppealDialogResponse] = useState('')
+
+  const [suggestionDialogOpen, setSuggestionDialogOpen] = useState(false)
+  const [suggestionDialogTarget, setSuggestionDialogTarget] = useState<Suggestion | null>(null)
+  const [suggestionDialogNextStatus, setSuggestionDialogNextStatus] = useState<
+    'pending' | 'reviewing' | 'accepted' | 'rejected' | 'implemented' | null
+  >(null)
+  const [suggestionDialogResponse, setSuggestionDialogResponse] = useState('')
+
   // Settings State
   const [systemSettings, setSystemSettings] = useState<{ daily_post_limit: string }>({ daily_post_limit: '3' })
 
@@ -357,11 +369,8 @@ export default function AdminDashboard() {
   }
 
   // --- Appeals Actions ---
-  const handleAppealAction = async (appeal: Appeal, status: 'approved' | 'rejected') => {
+  const handleAppealAction = async (appeal: Appeal, status: 'approved' | 'rejected', response: string) => {
     const label = status === 'approved' ? '通过' : '驳回'
-    if (!confirm(`确定要${label}这条申诉吗？`)) return
-
-    const response = window.prompt('可选：填写给用户的回复（可留空）', appeal.admin_response || '') ?? ''
 
     setAppealActionLoadingId(appeal.id)
     try {
@@ -391,6 +400,7 @@ export default function AdminDashboard() {
   const handleSuggestionAction = async (
     suggestion: Suggestion,
     nextStatus: 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'implemented',
+    response: string,
   ) => {
     const labelMap: Record<string, string> = {
       pending: '待处理',
@@ -401,9 +411,6 @@ export default function AdminDashboard() {
     }
 
     const label = labelMap[nextStatus] || nextStatus
-    if (!confirm(`确定将该建议标记为「${label}」吗？`)) return
-
-    const response = window.prompt('可选：填写给用户的反馈说明（可留空）', suggestion.admin_response || '') ?? ''
 
     setSuggestionActionLoadingId(suggestion.id)
     try {
@@ -427,6 +434,55 @@ export default function AdminDashboard() {
     } finally {
       setSuggestionActionLoadingId(null)
     }
+  }
+
+  const openAppealDialog = (appeal: Appeal, status: 'approved' | 'rejected') => {
+    setAppealDialogTarget(appeal)
+    setAppealDialogAction(status)
+    setAppealDialogResponse(appeal.admin_response || '')
+    setAppealDialogOpen(true)
+  }
+
+  const closeAppealDialog = () => {
+    setAppealDialogOpen(false)
+    setAppealDialogTarget(null)
+    setAppealDialogAction(null)
+    setAppealDialogResponse('')
+  }
+
+  const submitAppealDialog = async () => {
+    if (!appealDialogTarget || !appealDialogAction) return
+
+    await handleAppealAction(appealDialogTarget, appealDialogAction, appealDialogResponse.trim())
+    closeAppealDialog()
+  }
+
+  const openSuggestionDialog = (
+    suggestion: Suggestion,
+    nextStatus: 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'implemented',
+  ) => {
+    setSuggestionDialogTarget(suggestion)
+    setSuggestionDialogNextStatus(nextStatus)
+    setSuggestionDialogResponse(suggestion.admin_response || '')
+    setSuggestionDialogOpen(true)
+  }
+
+  const closeSuggestionDialog = () => {
+    setSuggestionDialogOpen(false)
+    setSuggestionDialogTarget(null)
+    setSuggestionDialogNextStatus(null)
+    setSuggestionDialogResponse('')
+  }
+
+  const submitSuggestionDialog = async () => {
+    if (!suggestionDialogTarget || !suggestionDialogNextStatus) return
+
+    await handleSuggestionAction(
+      suggestionDialogTarget,
+      suggestionDialogNextStatus,
+      suggestionDialogResponse.trim(),
+    )
+    closeSuggestionDialog()
   }
 
   // --- Post Actions ---
@@ -797,6 +853,133 @@ export default function AdminDashboard() {
               </div>
             </div>
 
+            {appealDialogOpen && appealDialogTarget && appealDialogAction && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                <div className="bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl w-full max-w-lg mx-4 p-4 sm:p-6">
+                  <h3 className="text-lg font-semibold mb-3">
+                    {appealDialogAction === 'approved' ? '通过申诉' : '驳回申诉'}
+                  </h3>
+                  <div className="text-xs text-gray-400 mb-1">申诉用户：{appealDialogTarget.user_id}</div>
+                  <div className="text-xs text-gray-400 mb-3">
+                    申诉时间：{new Date(appealDialogTarget.created_at).toLocaleString()}
+                  </div>
+                  <div className="mb-3">
+                    <div className="text-xs text-gray-400 mb-1">申诉理由</div>
+                    <p className="text-sm text-gray-100 whitespace-pre-wrap max-h-32 overflow-auto">
+                      {appealDialogTarget.reason}
+                    </p>
+                  </div>
+                  {appealDialogTarget.posts && (
+                    <div className="mb-3 bg-black/30 border border-white/5 rounded p-3">
+                      <div className="text-xs text-gray-400 mb-1">
+                        原帖子 - {appealDialogTarget.posts.author_name}
+                      </div>
+                      <p className="text-sm text-gray-200 line-clamp-2">
+                        {appealDialogTarget.posts.content}
+                      </p>
+                    </div>
+                  )}
+                  <div className="mb-4">
+                    <div className="text-xs text-gray-400 mb-1">给用户的回复（可选）</div>
+                    <textarea
+                      className="w-full bg-black/40 border border-neutral-700 rounded px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-[#0066CC]"
+                      rows={3}
+                      placeholder="可以简单说明处理结果原因，便于用户理解（可留空）"
+                      value={appealDialogResponse}
+                      onChange={(e) => setAppealDialogResponse(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3 text-xs">
+                    <button
+                      onClick={closeAppealDialog}
+                      className="px-3 py-1.5 rounded border border-neutral-600 text-gray-300 hover:bg-white/5"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={submitAppealDialog}
+                      disabled={appealActionLoadingId === appealDialogTarget.id}
+                      className={clsx(
+                        'px-3 py-1.5 rounded text-white',
+                        appealDialogAction === 'approved'
+                          ? 'bg-green-600 hover:bg-green-500'
+                          : 'bg-red-600 hover:bg-red-500',
+                        appealActionLoadingId === appealDialogTarget.id && 'opacity-60 cursor-not-allowed',
+                      )}
+                    >
+                      {appealActionLoadingId === appealDialogTarget.id ? '处理中...' : '确认提交'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {suggestionDialogOpen && suggestionDialogTarget && suggestionDialogNextStatus && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                <div className="bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl w-full max-w-lg mx-4 p-4 sm:p-6">
+                  <h3 className="text-lg font-semibold mb-3">
+                    {(() => {
+                      const labelMap: Record<string, string> = {
+                        pending: '标记为待处理',
+                        reviewing: '标记为处理中',
+                        accepted: '采纳建议',
+                        implemented: '标记为已实现',
+                        rejected: '拒绝建议',
+                      }
+                      return labelMap[suggestionDialogNextStatus] || '更新建议状态'
+                    })()}
+                  </h3>
+                  <div className="text-xs text-gray-400 mb-1">
+                    {suggestionDialogTarget.is_anonymous
+                      ? '匿名用户'
+                      : `用户ID：${suggestionDialogTarget.user_id || '未知'}`}
+                  </div>
+                  <div className="text-xs text-gray-400 mb-3">
+                    提交时间：{new Date(suggestionDialogTarget.created_at).toLocaleString()}
+                  </div>
+                  <div className="mb-3">
+                    <div className="text-xs text-gray-400 mb-1">建议内容</div>
+                    <p className="text-sm text-gray-100 whitespace-pre-wrap max-h-32 overflow-auto">
+                      {suggestionDialogTarget.content}
+                    </p>
+                  </div>
+                  <div className="mb-4">
+                    <div className="text-xs text-gray-400 mb-1">给用户的反馈说明（可选）</div>
+                    <textarea
+                      className="w-full bg-black/40 border border-neutral-700 rounded px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-[#0066CC]"
+                      rows={3}
+                      placeholder="简单说明处理进度或是否会采纳，方便用户理解（可留空）"
+                      value={suggestionDialogResponse}
+                      onChange={(e) => setSuggestionDialogResponse(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3 text-xs">
+                    <button
+                      onClick={closeSuggestionDialog}
+                      className="px-3 py-1.5 rounded border border-neutral-600 text-gray-300 hover:bg-white/5"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={submitSuggestionDialog}
+                      disabled={suggestionActionLoadingId === suggestionDialogTarget.id}
+                      className={clsx(
+                        'px-3 py-1.5 rounded text-white',
+                        suggestionDialogNextStatus === 'rejected'
+                          ? 'bg-red-600 hover:bg-red-500'
+                          : suggestionDialogNextStatus === 'implemented'
+                          ? 'bg-emerald-600 hover:bg-emerald-500'
+                          : 'bg-blue-600 hover:bg-blue-500',
+                        suggestionActionLoadingId === suggestionDialogTarget.id && 'opacity-60 cursor-not-allowed',
+                      )}
+                    >
+                      {suggestionActionLoadingId === suggestionDialogTarget.id ? '处理中...' : '确认提交'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {actionMessage && (
               <div className="fixed top-4 right-4 z-50">
                 <div className="px-4 py-2 rounded-md border border-green-500 bg-black text-xs text-green-300 shadow-lg shadow-black/40">
@@ -885,7 +1068,7 @@ export default function AdminDashboard() {
                       {appeal.status === 'pending' && (
                         <div className="flex justify-end gap-3 mt-2">
                           <button
-                            onClick={() => handleAppealAction(appeal, 'rejected')}
+                            onClick={() => openAppealDialog(appeal, 'rejected')}
                             disabled={appealActionLoadingId === appeal.id}
                             className={clsx(
                               'px-3 py-1.5 text-xs rounded border border-yellow-600 text-yellow-400 hover:bg-yellow-900/30',
@@ -895,7 +1078,7 @@ export default function AdminDashboard() {
                             {appealActionLoadingId === appeal.id ? '处理中...' : '驳回申诉'}
                           </button>
                           <button
-                            onClick={() => handleAppealAction(appeal, 'approved')}
+                            onClick={() => openAppealDialog(appeal, 'approved')}
                             disabled={appealActionLoadingId === appeal.id}
                             className={clsx(
                               'px-3 py-1.5 text-xs rounded bg-green-600 text-white hover:bg-green-500',
@@ -1023,7 +1206,7 @@ export default function AdminDashboard() {
 
                       <div className="flex flex-wrap justify-end gap-2 mt-2 text-xs">
                         <button
-                          onClick={() => handleSuggestionAction(s, 'reviewing')}
+                          onClick={() => openSuggestionDialog(s, 'reviewing')}
                           disabled={suggestionActionLoadingId === s.id}
                           className={clsx(
                             'px-3 py-1.5 rounded border border-blue-600 text-blue-300 hover:bg-blue-900/30',
@@ -1033,7 +1216,7 @@ export default function AdminDashboard() {
                           {suggestionActionLoadingId === s.id ? '处理中...' : '标记处理中'}
                         </button>
                         <button
-                          onClick={() => handleSuggestionAction(s, 'accepted')}
+                          onClick={() => openSuggestionDialog(s, 'accepted')}
                           disabled={suggestionActionLoadingId === s.id}
                           className={clsx(
                             'px-3 py-1.5 rounded border border-green-600 text-green-300 hover:bg-green-900/30',
@@ -1043,7 +1226,7 @@ export default function AdminDashboard() {
                           {suggestionActionLoadingId === s.id ? '处理中...' : '采纳建议'}
                         </button>
                         <button
-                          onClick={() => handleSuggestionAction(s, 'implemented')}
+                          onClick={() => openSuggestionDialog(s, 'implemented')}
                           disabled={suggestionActionLoadingId === s.id}
                           className={clsx(
                             'px-3 py-1.5 rounded border border-emerald-600 text-emerald-300 hover:bg-emerald-900/30',
@@ -1053,7 +1236,7 @@ export default function AdminDashboard() {
                           {suggestionActionLoadingId === s.id ? '处理中...' : '标记已实现'}
                         </button>
                         <button
-                          onClick={() => handleSuggestionAction(s, 'rejected')}
+                          onClick={() => openSuggestionDialog(s, 'rejected')}
                           disabled={suggestionActionLoadingId === s.id}
                           className={clsx(
                             'px-3 py-1.5 rounded border border-red-600 text-red-300 hover:bg-red-900/30',
