@@ -1,13 +1,13 @@
 package com.campus.forum.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.campus.forum.entity.User;
+import com.campus.forum.entity.UserProfile;
 import com.campus.forum.vo.UserVO;
 
 /**
  * 用户服务接口
  */
-public interface UserService extends IService<User> {
+public interface UserService extends IService<UserProfile> {
 
     /**
      * 根据用户名获取用户
@@ -15,7 +15,7 @@ public interface UserService extends IService<User> {
      * @param username 用户名
      * @return 用户信息
      */
-    User getByUsername(String username);
+    UserProfile getByUsername(String username);
 
     /**
      * 根据邮箱获取用户
@@ -23,7 +23,7 @@ public interface UserService extends IService<User> {
      * @param email 邮箱
      * @return 用户信息
      */
-    User getByEmail(String email);
+    UserProfile getByEmail(String email);
 
     /**
      * 获取用户详情 VO
@@ -31,7 +31,7 @@ public interface UserService extends IService<User> {
      * @param userId 用户ID
      * @return 用户详情 VO
      */
-    UserVO getUserDetail(Long userId);
+    UserVO getUserDetail(String userId);
 
     /**
      * 更新用户信息
@@ -39,7 +39,7 @@ public interface UserService extends IService<User> {
      * @param userId 用户ID
      * @param userVO 用户信息
      */
-    void updateUserInfo(Long userId, UserVO userVO);
+    void updateUserInfo(String userId, UserVO userVO);
 
     /**
      * 修改密码
@@ -48,7 +48,7 @@ public interface UserService extends IService<User> {
      * @param oldPassword 旧密码
      * @param newPassword 新密码
      */
-    void changePassword(Long userId, String oldPassword, String newPassword);
+    void changePassword(String userId, String oldPassword, String newPassword);
 
     /**
      * 更新用户登录信息
@@ -56,5 +56,5 @@ public interface UserService extends IService<User> {
      * @param userId 用户ID
      * @param ip     登录IP
      */
-    void updateLoginInfo(Long userId, String ip);
+    void updateLoginInfo(String userId, String ip);
 }

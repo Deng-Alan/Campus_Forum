@@ -39,11 +39,11 @@ public class JwtUtil {
     /**
      * 生成 Access Token
      *
-     * @param userId   用户ID
+     * @param userId   用户ID（UUID 字符串）
      * @param username 用户名
      * @return token
      */
-    public String generateAccessToken(Long userId, String username) {
+    public String generateAccessToken(String userId, String username) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("username", username);
@@ -54,10 +54,10 @@ public class JwtUtil {
     /**
      * 生成 Refresh Token
      *
-     * @param userId 用户ID
+     * @param userId 用户ID（UUID 字符串）
      * @return token
      */
-    public String generateRefreshToken(Long userId) {
+    public String generateRefreshToken(String userId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("type", "refresh");
@@ -80,11 +80,11 @@ public class JwtUtil {
     }
 
     /**
-     * 从 Token 中获取用户ID
+     * 从 Token 中获取用户ID（UUID 字符串）
      */
-    public Long getUserIdFromToken(String token) {
+    public String getUserIdFromToken(String token) {
         Claims claims = getClaimsFromToken(token);
-        return claims.get("userId", Long.class);
+        return claims.get("userId", String.class);
     }
 
     /**
