@@ -1,13 +1,18 @@
 package com.campus.forum.controller;
 
 import com.campus.forum.common.Result;
+import com.campus.forum.dto.ChangePasswordDTO;
 import com.campus.forum.dto.LoginDTO;
 import com.campus.forum.dto.RegisterDTO;
 import com.campus.forum.service.AuthService;
+import com.campus.forum.service.UserService;
 import com.campus.forum.vo.LoginVO;
+import com.campus.forum.vo.UserVO;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,11 +25,12 @@ import java.util.Map;
  */
 @Api(tags = "认证管理")
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
+    private final UserService userService;
 
     @ApiOperation("用户登录")
     @PostMapping("/login")
@@ -66,5 +72,22 @@ public class AuthController {
         data.put("key", parts[1]);
         
         return Result.success(data);
+    }
+
+    @ApiOperation("获取当前用户信息")
+    @GetMapping("/me")
+    public Result<UserVO> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
+        var user = userService.getByUsername(userDetails.getUsername());
+        UserVO userVO = userService.getUserDetail(user.getId());
+        return Result.success(userVO);
+    }
+
+    @ApiOperation("修改密码")
+    @PutMapping("/password")
+    public Result<Void> changePassword(@AuthenticationPrincipal UserDetails userDetails,
+                                       @RequestBody @Validated ChangePasswordDTO dto) {
+        var user = userService.getByUsername(userDetails.getUsername());
+        userService.changePassword(user.getId(), dto.getOldPassword(), dto.getNewPassword());
+        return Result.success("密码修改成功", null);
     }
 }

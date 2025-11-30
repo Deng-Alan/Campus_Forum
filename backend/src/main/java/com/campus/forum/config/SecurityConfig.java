@@ -36,10 +36,10 @@ public class SecurityConfig {
      */
     private static final String[] WHITE_LIST = {
             // 认证相关
-            "/auth/login",
-            "/auth/register",
-            "/auth/captcha",
-            "/auth/refresh-token",
+            "/v1/auth/login",
+            "/v1/auth/register",
+            "/v1/auth/captcha",
+            "/v1/auth/refresh-token",
             
             // Swagger 文档
             "/doc.html",
@@ -65,7 +65,7 @@ public class SecurityConfig {
             "/posts/{id}/comments",
             "/categories",
             "/tags",
-            "/users/{id}/profile"
+            "/v1/users/{id}/profile"
     };
 
     @Bean

@@ -6,9 +6,8 @@ import cn.hutool.core.util.IdUtil;
 import com.campus.forum.common.ResultCode;
 import com.campus.forum.dto.LoginDTO;
 import com.campus.forum.dto.RegisterDTO;
-import com.campus.forum.entity.User;
+import com.campus.forum.entity.UserProfile;
 import com.campus.forum.exception.BusinessException;
-import com.campus.forum.mapper.UserMapper;
 import com.campus.forum.service.AuthService;
 import com.campus.forum.service.UserService;
 import com.campus.forum.util.JwtUtil;
@@ -19,9 +18,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,10 +34,8 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final RedisUtil redisUtil;
-    private final UserMapper userMapper;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
 
@@ -64,18 +58,24 @@ public class AuthServiceImpl implements AuthService {
             validateCaptcha(loginDTO.getCaptchaKey(), loginDTO.getCaptcha());
         }
 
-        // 认证
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginDTO.getUsername(),
-                        loginDTO.getPassword()
-                )
-        );
-
-        // 获取用户信息
-        User user = userMapper.selectByUsername(loginDTO.getUsername());
+        // 根据用户名或邮箱获取用户信息
+        String usernameOrEmail = loginDTO.getUsernameOrEmail();
+        UserProfile user = userService.getByUsername(usernameOrEmail);
+        if (user == null) {
+            user = userService.getByEmail(usernameOrEmail);
+        }
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+
+        // 校验用户状态
+        if (!"active".equalsIgnoreCase(user.getStatus())) {
+            throw new BusinessException(ResultCode.ACCOUNT_DISABLED, "账号已被禁用");
+        }
+
+        // 校验密码
+        if (!passwordEncoder.matches(loginDTO.getPassword(), user.getPasswordHash())) {
+            throw new BusinessException(ResultCode.PASSWORD_ERROR, "用户名或密码错误");
         }
 
         // 生成 Token
@@ -114,33 +114,25 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 检查用户名是否已存在
-        if (userMapper.selectByUsername(registerDTO.getUsername()) != null) {
+        if (userService.getByUsername(registerDTO.getUsername()) != null) {
             throw new BusinessException(ResultCode.USER_ALREADY_EXISTS, "用户名已存在");
         }
 
         // 检查邮箱是否已存在
-        if (registerDTO.getEmail() != null && userMapper.selectByEmail(registerDTO.getEmail()) != null) {
+        if (registerDTO.getEmail() != null && userService.getByEmail(registerDTO.getEmail()) != null) {
             throw new BusinessException(ResultCode.USER_ALREADY_EXISTS, "邮箱已被注册");
         }
 
-        // 检查手机号是否已存在
-        if (registerDTO.getPhone() != null && userMapper.selectByPhone(registerDTO.getPhone()) != null) {
-            throw new BusinessException(ResultCode.USER_ALREADY_EXISTS, "手机号已被注册");
-        }
-
-        // 创建用户
-        User user = new User();
+        // 创建用户（基于 user_profiles 表）
+        UserProfile user = new UserProfile();
         user.setUsername(registerDTO.getUsername());
-        user.setPassword(passwordEncoder.encode(registerDTO.getPassword()));
         user.setNickname(registerDTO.getNickname());
         user.setEmail(registerDTO.getEmail());
-        user.setPhone(registerDTO.getPhone());
-        user.setRole(registerDTO.getRole());
-        user.setGrade(registerDTO.getGrade());
-        user.setClassNumber(registerDTO.getClassNumber());
-        user.setStatus(1); // 默认正常状态，如需审核改为 2
+        user.setPasswordHash(passwordEncoder.encode(registerDTO.getPassword()));
+        user.setRole("user");
+        user.setStatus("active");
 
-        userMapper.insert(user);
+        userService.save(user);
         log.info("用户注册成功: {}", user.getUsername());
     }
 
@@ -158,8 +150,8 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 获取用户 ID
-        Long userId = jwtUtil.getUserIdFromToken(refreshToken);
-        User user = userService.getById(userId);
+        String userId = jwtUtil.getUserIdFromToken(refreshToken);
+        UserProfile user = userService.getById(userId);
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
