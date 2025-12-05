@@ -135,32 +135,15 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
         // 检查是否已点赞（使用 Redis Set）
         String redisKey = COMMENT_LIKES_KEY + commentId;
-        Boolean isMember = null;
-        try {
-            isMember = redisUtil.sIsMember(redisKey, userId);
-        } catch (Exception e) {
-            log.warn("检查评论点赞状态时访问 Redis 失败，降级为无操作，key={}, userId={}", redisKey, userId, e);
-        }
-
-        if (isMember == null) {
-            return comment.getLikes();
-        }
+        Boolean isMember = redisUtil.sIsMember(redisKey, userId);
 
         if (Boolean.TRUE.equals(isMember)) {
             // 已点赞，则取消点赞
-            try {
-                redisUtil.sRemove(redisKey, userId);
-            } catch (Exception e) {
-                log.warn("取消评论点赞时访问 Redis 失败，key={}, userId={}", redisKey, userId, e);
-            }
+            redisUtil.sRemove(redisKey, userId);
             comment.setLikes(Math.max(0, comment.getLikes() - 1));
         } else {
             // 未点赞，则添加点赞
-            try {
-                redisUtil.sAdd(redisKey, userId);
-            } catch (Exception e) {
-                log.warn("添加评论点赞时访问 Redis 失败，key={}, userId={}", redisKey, userId, e);
-            }
+            redisUtil.sAdd(redisKey, userId);
             comment.setLikes(comment.getLikes() + 1);
         }
 

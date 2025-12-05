@@ -40,17 +40,13 @@ public class LeaderboardServiceImpl implements LeaderboardService {
             limit = 10;
         }
 
-        // 尝试从缓存获取（Redis 不可用时跳过缓存）
+        // 尝试从缓存获取
         String cacheKey = LEADERBOARD_CACHE_KEY + days + ":" + (subject != null ? subject : "all");
-        try {
-            Object cached = redisUtil.get(cacheKey);
-            if (cached != null && cached instanceof List) {
-                @SuppressWarnings("unchecked")
-                List<LeaderboardVO> cachedList = (List<LeaderboardVO>) cached;
-                return cachedList.stream().limit(limit).toList();
-            }
-        } catch (Exception e) {
-            log.warn("读取排行榜缓存失败，将从数据库查询，key={}", cacheKey, e);
+        Object cached = redisUtil.get(cacheKey);
+        if (cached != null && cached instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<LeaderboardVO> cachedList = (List<LeaderboardVO>) cached;
+            return cachedList.stream().limit(limit).toList();
         }
 
         // 计算时间范围
@@ -121,12 +117,8 @@ public class LeaderboardServiceImpl implements LeaderboardService {
             result.get(i).setRank(i + 1);
         }
 
-        // 缓存 5 分钟（Redis 不可用时跳过缓存）
-        try {
-            redisUtil.set(cacheKey, result, 5, TimeUnit.MINUTES);
-        } catch (Exception e) {
-            log.warn("写入排行榜缓存失败，key={}", cacheKey, e);
-        }
+        // 缓存 5 分钟
+        redisUtil.set(cacheKey, result, 5, TimeUnit.MINUTES);
 
         // 返回指定数量
         return result.stream().limit(limit).toList();

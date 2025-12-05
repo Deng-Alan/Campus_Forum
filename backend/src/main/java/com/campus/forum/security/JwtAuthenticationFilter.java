@@ -88,12 +88,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * 检查 Token 是否在黑名单中
      */
     private boolean isTokenBlacklisted(String token) {
-        try {
-            return Boolean.TRUE.equals(redisTemplate.hasKey(TOKEN_BLACKLIST_KEY + token));
-        } catch (Exception e) {
-            // Redis 不可用时，跳过黑名单检查，避免影响正常认证
-            log.warn("Redis 不可用，跳过 Token 黑名单检查", e);
-            return false;
-        }
+        return Boolean.TRUE.equals(redisTemplate.hasKey(TOKEN_BLACKLIST_KEY + token));
     }
 }

@@ -99,17 +99,11 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
             log.warn("读取 daily_post_limit 配置失败，使用默认值 {}", dailyLimit, e);
         }
 
-        // 检查今日发帖数（Redis 不可用时降级为 0）
+        // 检查今日发帖数
         String today = LocalDate.now().toString();
         String redisKey = DAILY_POST_COUNT_KEY + userId + ":" + today;
-        Integer count = 0;
-        try {
-            count = (Integer) redisUtil.get(redisKey);
-            if (count == null) {
-                count = 0;
-            }
-        } catch (Exception e) {
-            log.warn("读取 Redis 发帖计数失败，使用默认值 0，key={}", redisKey, e);
+        Integer count = (Integer) redisUtil.get(redisKey);
+        if (count == null) {
             count = 0;
         }
 
@@ -157,13 +151,9 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
 
         // 增加今日发帖计数
         count++;
-        // 设置过期时间到今天 23:59:59（Redis 不可用时仅记录日志，不影响主流程）
+        // 设置过期时间到今天 23:59:59
         long secondsUntilMidnight = 86400 - (System.currentTimeMillis() / 1000 % 86400);
-        try {
-            redisUtil.set(redisKey, count, secondsUntilMidnight, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            log.warn("更新 Redis 发帖计数失败，key={}, value={}", redisKey, count, e);
-        }
+        redisUtil.set(redisKey, count, secondsUntilMidnight, TimeUnit.SECONDS);
 
         log.info("用户 {} 发布帖子: {}", userId, post.getId());
 
@@ -203,32 +193,15 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
 
         // 检查是否已点赞（使用 Redis Set）
         String redisKey = POST_LIKES_KEY + postId;
-        Boolean isMember = null;
-        try {
-            isMember = redisUtil.sIsMember(redisKey, userId);
-        } catch (Exception e) {
-            log.warn("检查帖子点赞状态时访问 Redis 失败，降级为无操作，key={}, userId={}", redisKey, userId, e);
-        }
-
-        if (isMember == null) {
-            return post.getLikes();
-        }
+        Boolean isMember = redisUtil.sIsMember(redisKey, userId);
 
         if (Boolean.TRUE.equals(isMember)) {
             // 已点赞，则取消点赞
-            try {
-                redisUtil.sRemove(redisKey, userId);
-            } catch (Exception e) {
-                log.warn("取消帖子点赞时访问 Redis 失败，key={}, userId={}", redisKey, userId, e);
-            }
+            redisUtil.sRemove(redisKey, userId);
             post.setLikes(Math.max(0, post.getLikes() - 1));
         } else {
             // 未点赞，则添加点赞
-            try {
-                redisUtil.sAdd(redisKey, userId);
-            } catch (Exception e) {
-                log.warn("添加帖子点赞时访问 Redis 失败，key={}, userId={}", redisKey, userId, e);
-            }
+            redisUtil.sAdd(redisKey, userId);
             post.setLikes(post.getLikes() + 1);
         }
 
