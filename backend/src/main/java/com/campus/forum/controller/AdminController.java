@@ -31,6 +31,7 @@ public class AdminController {
     private final AppealService appealService;
     private final SuggestionService suggestionService;
     private final CommentService commentService;
+    private final UserService userService;
 
     /**
      * 获取统计数据
@@ -230,7 +231,8 @@ public class AdminController {
             @PathVariable String appealId,
             @Valid @RequestBody HandleAppealDTO handleAppealDTO) {
 
-        String adminId = userDetails.getUsername();
+        var admin = userService.getByUsername(userDetails.getUsername());
+        String adminId = admin.getId();
         adminService.handleAppeal(adminId, appealId, handleAppealDTO);
 
         return Result.success();
@@ -266,7 +268,8 @@ public class AdminController {
             @PathVariable String suggestionId,
             @Valid @RequestBody HandleSuggestionDTO handleSuggestionDTO) {
 
-        String adminId = userDetails.getUsername();
+        var admin = userService.getByUsername(userDetails.getUsername());
+        String adminId = admin.getId();
         adminService.handleSuggestion(adminId, suggestionId, handleSuggestionDTO);
 
         return Result.success();

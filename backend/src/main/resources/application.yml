@@ -1,7 +1,7 @@
 server:
   port: 8080
-  servlet:
-    context-path: /api
+  # servlet:
+  #   context-path: /api  # 已注释，直接在Controller中使用完整路径
 
 spring:
   application:
@@ -12,7 +12,7 @@ spring:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://localhost:5432/campus_forum?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: postgres
-    password: postgres123
+    password: 918112
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
@@ -101,7 +101,7 @@ campus:
   
   # 验证码配置
   captcha:
-    enabled: true
+    enabled: false  # 测试时临时关闭
     expire: 300  # 5分钟
 
   # 内容审核配置

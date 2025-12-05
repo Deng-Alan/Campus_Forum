@@ -1,5 +1,6 @@
 package com.campus.forum.service.impl;
 
+import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -85,15 +86,30 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> createPost(String userId, CreatePostDTO createPostDTO) {
-        // 获取系统设置的每日发帖上限
-        String dailyLimitStr = systemSettingMapper.selectById("daily_post_limit").getValue();
-        int dailyLimit = Integer.parseInt(dailyLimitStr);
+        // 获取系统设置的每日发帖上限，查不到时使用默认值 3
+        int dailyLimit = 3;
+        try {
+            var setting = systemSettingMapper.selectById("daily_post_limit");
+            if (setting != null && setting.getValue() != null && !setting.getValue().isEmpty()) {
+                dailyLimit = Integer.parseInt(setting.getValue());
+            } else {
+                log.warn("system_settings 中缺少 daily_post_limit 配置或值为空，使用默认值 {}", dailyLimit);
+            }
+        } catch (Exception e) {
+            log.warn("读取 daily_post_limit 配置失败，使用默认值 {}", dailyLimit, e);
+        }
 
-        // 检查今日发帖数
+        // 检查今日发帖数（Redis 不可用时降级为 0）
         String today = LocalDate.now().toString();
         String redisKey = DAILY_POST_COUNT_KEY + userId + ":" + today;
-        Integer count = (Integer) redisUtil.get(redisKey);
-        if (count == null) {
+        Integer count = 0;
+        try {
+            count = (Integer) redisUtil.get(redisKey);
+            if (count == null) {
+                count = 0;
+            }
+        } catch (Exception e) {
+            log.warn("读取 Redis 发帖计数失败，使用默认值 0，key={}", redisKey, e);
             count = 0;
         }
 
@@ -115,6 +131,7 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
 
         // 创建帖子
         Post post = new Post();
+        post.setId(IdUtil.simpleUUID());
         post.setUserId(userId);
         post.setContent(createPostDTO.getContent());
         post.setType(createPostDTO.getType());
@@ -140,9 +157,13 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
 
         // 增加今日发帖计数
         count++;
-        // 设置过期时间到今天 23:59:59
+        // 设置过期时间到今天 23:59:59（Redis 不可用时仅记录日志，不影响主流程）
         long secondsUntilMidnight = 86400 - (System.currentTimeMillis() / 1000 % 86400);
-        redisUtil.set(redisKey, count, secondsUntilMidnight, TimeUnit.SECONDS);
+        try {
+            redisUtil.set(redisKey, count, secondsUntilMidnight, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("更新 Redis 发帖计数失败，key={}, value={}", redisKey, count, e);
+        }
 
         log.info("用户 {} 发布帖子: {}", userId, post.getId());
 
@@ -182,15 +203,32 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
 
         // 检查是否已点赞（使用 Redis Set）
         String redisKey = POST_LIKES_KEY + postId;
-        Boolean isMember = redisUtil.sIsMember(redisKey, userId);
+        Boolean isMember = null;
+        try {
+            isMember = redisUtil.sIsMember(redisKey, userId);
+        } catch (Exception e) {
+            log.warn("检查帖子点赞状态时访问 Redis 失败，降级为无操作，key={}, userId={}", redisKey, userId, e);
+        }
+
+        if (isMember == null) {
+            return post.getLikes();
+        }
 
         if (Boolean.TRUE.equals(isMember)) {
             // 已点赞，则取消点赞
-            redisUtil.sRemove(redisKey, userId);
-            post.setLikes(post.getLikes() - 1);
+            try {
+                redisUtil.sRemove(redisKey, userId);
+            } catch (Exception e) {
+                log.warn("取消帖子点赞时访问 Redis 失败，key={}, userId={}", redisKey, userId, e);
+            }
+            post.setLikes(Math.max(0, post.getLikes() - 1));
         } else {
             // 未点赞，则添加点赞
-            redisUtil.sAdd(redisKey, userId);
+            try {
+                redisUtil.sAdd(redisKey, userId);
+            } catch (Exception e) {
+                log.warn("添加帖子点赞时访问 Redis 失败，key={}, userId={}", redisKey, userId, e);
+            }
             post.setLikes(post.getLikes() + 1);
         }
 

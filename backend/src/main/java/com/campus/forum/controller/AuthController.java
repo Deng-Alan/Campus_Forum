@@ -25,7 +25,7 @@ import java.util.Map;
  */
 @Api(tags = "认证管理")
 @RestController
-@RequestMapping("/v1/auth")
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 

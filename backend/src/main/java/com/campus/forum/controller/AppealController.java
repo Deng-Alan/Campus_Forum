@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.campus.forum.common.Result;
 import com.campus.forum.dto.CreateAppealDTO;
 import com.campus.forum.service.AppealService;
+import com.campus.forum.service.UserService;
 import com.campus.forum.vo.AppealVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,6 +23,7 @@ import java.util.Map;
 public class AppealController {
 
     private final AppealService appealService;
+    private final UserService userService;
 
     /**
      * 提交申诉
@@ -31,7 +33,8 @@ public class AppealController {
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody CreateAppealDTO createAppealDTO) {
 
-        String userId = userDetails.getUsername();
+        var user = userService.getByUsername(userDetails.getUsername());
+        String userId = user.getId();
         appealService.createAppeal(userId, createAppealDTO);
 
         return Result.success();
@@ -46,7 +49,8 @@ public class AppealController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
 
-        String userId = userDetails.getUsername();
+        var user = userService.getByUsername(userDetails.getUsername());
+        String userId = user.getId();
         Page<AppealVO> result = appealService.getMyAppeals(userId, page, size);
 
         Map<String, Object> data = Map.of(

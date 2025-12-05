@@ -17,7 +17,7 @@ public class UserPreference {
     /**
      * 主键（UUID 字符串）
      */
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private String id;
 
     /**

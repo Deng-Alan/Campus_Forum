@@ -32,14 +32,14 @@ public class SecurityConfig {
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     /**
-     * 白名单路径
+     * 白名单路径（无需认证）
      */
     private static final String[] WHITE_LIST = {
             // 认证相关
-            "/v1/auth/login",
-            "/v1/auth/register",
-            "/v1/auth/captcha",
-            "/v1/auth/refresh-token",
+            "/api/v1/auth/login",
+            "/api/v1/auth/register",
+            "/api/v1/auth/captcha",
+            "/api/v1/auth/refresh-token",
             
             // Swagger 文档
             "/doc.html",
@@ -51,21 +51,23 @@ public class SecurityConfig {
             // 静态资源
             "/favicon.ico",
             "/error",
+            "/uploads/**",
             
             // 健康检查
             "/actuator/**"
     };
 
     /**
-     * 公开访问路径 (只读)
+     * 公开访问路径（只读，无需认证）
      */
     private static final String[] PUBLIC_GET_PATHS = {
-            "/posts",
-            "/posts/{id}",
-            "/posts/{id}/comments",
-            "/categories",
-            "/tags",
-            "/v1/users/{id}/profile"
+            "/api/v1/posts",
+            "/api/v1/posts/*",
+            "/api/v1/posts/*/comments",
+            "/api/v1/announcements",
+            "/api/v1/leaderboard/study",
+            "/api/v1/users/*",
+            "/api/v1/users/*/profile"
     };
 
     @Bean
@@ -94,7 +96,7 @@ public class SecurityConfig {
                 // OPTIONS 请求放行
                 .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // 管理员接口
-                .antMatchers("/admin/**").hasRole("ADMIN")
+                .antMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 // 其他请求需要认证
                 .anyRequest().authenticated()
                 .and()

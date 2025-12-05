@@ -125,6 +125,7 @@ public class AuthServiceImpl implements AuthService {
 
         // 创建用户（基于 user_profiles 表）
         UserProfile user = new UserProfile();
+        user.setId(IdUtil.simpleUUID()); // 手动生成 UUID
         user.setUsername(registerDTO.getUsername());
         user.setNickname(registerDTO.getNickname());
         user.setEmail(registerDTO.getEmail());

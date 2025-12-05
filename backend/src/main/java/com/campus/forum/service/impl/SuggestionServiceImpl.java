@@ -1,5 +1,6 @@
 package com.campus.forum.service.impl;
 
+import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.campus.forum.dto.CreateSuggestionDTO;
 import com.campus.forum.entity.Suggestion;
@@ -23,6 +24,7 @@ public class SuggestionServiceImpl extends ServiceImpl<SuggestionMapper, Suggest
     public void createSuggestion(String userId, CreateSuggestionDTO createSuggestionDTO) {
         // 创建建议
         Suggestion suggestion = new Suggestion();
+        suggestion.setId(IdUtil.simpleUUID());
         suggestion.setUserId(userId); // 可能为 null（匿名提交）
         suggestion.setContent(createSuggestionDTO.getContent());
         suggestion.setCategory(createSuggestionDTO.getCategory() != null ? createSuggestionDTO.getCategory() : "general");

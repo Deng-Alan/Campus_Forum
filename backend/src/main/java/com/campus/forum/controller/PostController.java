@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.campus.forum.common.Result;
 import com.campus.forum.dto.CreatePostDTO;
 import com.campus.forum.service.PostService;
+import com.campus.forum.service.UserService;
 import com.campus.forum.vo.PostVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,6 +23,7 @@ import java.util.Map;
 public class PostController {
 
     private final PostService postService;
+    private final UserService userService;
 
     /**
      * 获取帖子列表
@@ -64,7 +66,8 @@ public class PostController {
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody CreatePostDTO createPostDTO) {
 
-        String userId = userDetails.getUsername();
+        var user = userService.getByUsername(userDetails.getUsername());
+        String userId = user.getId();
         Map<String, Object> result = postService.createPost(userId, createPostDTO);
 
         return Result.success("发布成功，已提交审核", result);
@@ -78,7 +81,8 @@ public class PostController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable String postId) {
 
-        String userId = userDetails.getUsername();
+        var user = userService.getByUsername(userDetails.getUsername());
+        String userId = user.getId();
         postService.deletePost(userId, postId);
 
         return Result.success();
@@ -92,7 +96,8 @@ public class PostController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable String postId) {
 
-        String userId = userDetails.getUsername();
+        var user = userService.getByUsername(userDetails.getUsername());
+        String userId = user.getId();
         Integer likes = postService.likePost(userId, postId);
 
         return Result.success(Map.of("likes", likes));
@@ -107,7 +112,8 @@ public class PostController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
 
-        String userId = userDetails.getUsername();
+        var user = userService.getByUsername(userDetails.getUsername());
+        String userId = user.getId();
         Page<PostVO> result = postService.getMyPosts(userId, page, size);
 
         Map<String, Object> data = Map.of(

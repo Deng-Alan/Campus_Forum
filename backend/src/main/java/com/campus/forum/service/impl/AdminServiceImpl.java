@@ -2,6 +2,7 @@ package com.campus.forum.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import cn.hutool.core.util.IdUtil;
 import com.campus.forum.common.ResultCode;
 import com.campus.forum.dto.*;
 import com.campus.forum.entity.*;
@@ -148,6 +149,7 @@ public class AdminServiceImpl implements AdminService {
     @Transactional(rollbackFor = Exception.class)
     public void createAnnouncement(CreateAnnouncementDTO createAnnouncementDTO) {
         Announcement announcement = new Announcement();
+        announcement.setId(IdUtil.simpleUUID());
         announcement.setTitle(createAnnouncementDTO.getTitle());
         announcement.setContent(createAnnouncementDTO.getContent());
         announcement.setType(createAnnouncementDTO.getType() != null ? createAnnouncementDTO.getType() : "notice");

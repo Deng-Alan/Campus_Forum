@@ -3,6 +3,7 @@ package com.campus.forum.controller;
 import com.campus.forum.common.Result;
 import com.campus.forum.dto.CreateSuggestionDTO;
 import com.campus.forum.service.SuggestionService;
+import com.campus.forum.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,6 +20,7 @@ import javax.validation.Valid;
 public class SuggestionController {
 
     private final SuggestionService suggestionService;
+    private final UserService userService;
 
     /**
      * 提交建议
@@ -29,9 +31,11 @@ public class SuggestionController {
             @Valid @RequestBody CreateSuggestionDTO createSuggestionDTO) {
 
         // 支持匿名提交
-        String userId = (userDetails != null && !createSuggestionDTO.getIsAnonymous())
-                ? userDetails.getUsername()
-                : null;
+        String userId = null;
+        if (userDetails != null && !createSuggestionDTO.getIsAnonymous()) {
+            var user = userService.getByUsername(userDetails.getUsername());
+            userId = user.getId();
+        }
 
         suggestionService.createSuggestion(userId, createSuggestionDTO);
 

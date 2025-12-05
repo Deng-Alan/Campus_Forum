@@ -1,5 +1,6 @@
 package com.campus.forum.service.impl;
 
+import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.campus.forum.common.ResultCode;
 import com.campus.forum.dto.CreateReportDTO;
@@ -35,6 +36,7 @@ public class ReportServiceImpl extends ServiceImpl<ReportMapper, Report> impleme
 
         // 创建举报
         Report report = new Report();
+        report.setId(IdUtil.simpleUUID());
         report.setPostId(createReportDTO.getPostId());
         report.setUserId(userId); // 可能为 null（匿名举报）
         report.setReason(createReportDTO.getReason());

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.campus.forum.common.Result;
 import com.campus.forum.dto.CreateCommentDTO;
 import com.campus.forum.service.CommentService;
+import com.campus.forum.service.UserService;
 import com.campus.forum.vo.CommentVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,6 +23,7 @@ import java.util.Map;
 public class CommentController {
 
     private final CommentService commentService;
+    private final UserService userService;
 
     /**
      * 获取帖子评论列表
@@ -53,7 +55,8 @@ public class CommentController {
             @PathVariable String postId,
             @Valid @RequestBody CreateCommentDTO createCommentDTO) {
 
-        String userId = userDetails.getUsername();
+        var user = userService.getByUsername(userDetails.getUsername());
+        String userId = user.getId();
         commentService.createComment(userId, postId, createCommentDTO);
 
         return Result.success();
@@ -67,7 +70,8 @@ public class CommentController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable String commentId) {
 
-        String userId = userDetails.getUsername();
+        var user = userService.getByUsername(userDetails.getUsername());
+        String userId = user.getId();
         commentService.deleteComment(userId, commentId);
 
         return Result.success();
@@ -81,7 +85,8 @@ public class CommentController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable String commentId) {
 
-        String userId = userDetails.getUsername();
+        var user = userService.getByUsername(userDetails.getUsername());
+        String userId = user.getId();
         Integer likes = commentService.likeComment(userId, commentId);
 
         return Result.success(Map.of("likes", likes));

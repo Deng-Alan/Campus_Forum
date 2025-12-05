@@ -1,5 +1,6 @@
 package com.campus.forum.controller;
 
+import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.campus.forum.common.Result;
 import com.campus.forum.common.ResultCode;
@@ -23,7 +24,7 @@ import java.util.Map;
  */
 @Api(tags = "用户管理")
 @RestController
-@RequestMapping("/v1/users")
+@RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserController {
 
@@ -101,6 +102,7 @@ public class UserController {
                 new QueryWrapper<UserPreference>().eq("user_id", user.getId()));
         if (pref == null) {
             pref = new UserPreference();
+            pref.setId(IdUtil.simpleUUID());
             pref.setUserId(user.getId());
             pref.setIsAnonymous(isAnonymous);
             userPreferenceMapper.insert(pref);

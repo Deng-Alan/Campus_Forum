@@ -1,5 +1,6 @@
 package com.campus.forum.service.impl;
 
+import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -58,6 +59,7 @@ public class AppealServiceImpl extends ServiceImpl<AppealMapper, Appeal> impleme
 
         // 创建申诉
         Appeal appeal = new Appeal();
+        appeal.setId(IdUtil.simpleUUID());
         appeal.setPostId(createAppealDTO.getPostId());
         appeal.setUserId(userId);
         appeal.setReason(createAppealDTO.getReason());
