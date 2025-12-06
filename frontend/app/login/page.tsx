@@ -10,15 +10,17 @@ export default function LoginPage() {
   const { login } = useAuth()
   const [usernameOrEmail, setUsernameOrEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     if (!usernameOrEmail.trim()) {
-      alert('请输入用户名或邮箱')
+      setError('请输入用户名或邮箱')
       return
     }
     if (!password.trim()) {
-      alert('请输入密码')
+      setError('请输入密码')
       return
     }
     
@@ -26,7 +28,7 @@ export default function LoginPage() {
     if (result.success) {
       router.push('/')
     } else {
-      alert(result.message)
+      setError(result.message || '用户名或密码错误')
     }
   }
 
@@ -61,6 +63,9 @@ export default function LoginPage() {
           >
             登录
           </button>
+          {error && (
+            <p className="text-xs text-red-400 mt-2 text-center">{error}</p>
+          )}
         </form>
         <div className="text-xs text-gray-400 mt-4 text-center">
           还没有账号？
