@@ -170,7 +170,7 @@ export async function apiDelete<T>(path: string, query?: Record<string, any>) {
  * @returns 上传后的图片URL
  */
 export async function uploadImage(file: File, type: 'post' | 'avatar'): Promise<string> {
-  const token = localStorage.getItem('token')
+  const token = getAccessToken()
 
   const formData = new FormData()
   formData.append('file', file)

@@ -10,9 +10,9 @@ spring:
   # 数据源配置 - PostgreSQL
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/campus_forum?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
-    username: postgres
-    password: 918112
+    url: '${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/campus_forum?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}'
+    username: '${SPRING_DATASOURCE_USERNAME:postgres}'
+    password: '${SPRING_DATASOURCE_PASSWORD:918112}'
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
@@ -67,9 +67,9 @@ mybatis-plus:
 
 # JWT 配置
 jwt:
-  secret: your-256-bit-secret-key-for-campus-forum-application-2024
-  expiration: 86400000   # 24小时 (毫秒)
-  refresh-expiration: 604800000  # 7天 (毫秒)
+  secret: '${JWT_SECRET:change-me-in-prod}'
+  expiration: ${JWT_EXPIRATION:86400000}   # 24小时 (毫秒)
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}  # 7天 (毫秒)
   header: Authorization
   prefix: "Bearer "
 
@@ -125,7 +125,7 @@ spring:
     activate:
       on-profile: prod
   datasource:
-    url: jdbc:postgresql://localhost:5432/campus_forum
+    url: '${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/campus_forum}'
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
@@ -133,3 +133,6 @@ logging:
   level:
     root: warn
     com.campus.forum: info
+campus:
+  captcha:
+    enabled: true
