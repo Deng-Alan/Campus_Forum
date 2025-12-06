@@ -266,8 +266,18 @@ public class AdminServiceImpl implements AdminService {
         for (Map.Entry<String, String> entry : settings.entrySet()) {
             SystemSetting setting = systemSettingMapper.selectById(entry.getKey());
             if (setting != null) {
+                // 更新已有配置
                 setting.setValue(entry.getValue());
+                setting.setUpdatedAt(LocalDateTime.now());
                 systemSettingMapper.updateById(setting);
+            } else {
+                // 不存在时插入新配置，支持像 daily_post_limit 这样的新键
+                SystemSetting newSetting = new SystemSetting();
+                newSetting.setKey(entry.getKey());
+                newSetting.setValue(entry.getValue());
+                newSetting.setDescription(null);
+                newSetting.setUpdatedAt(LocalDateTime.now());
+                systemSettingMapper.insert(newSetting);
             }
         }
         log.info("更新系统设置");

@@ -162,3 +162,46 @@ export async function apiPut<T>(path: string, body?: any, query?: Record<string,
 export async function apiDelete<T>(path: string, query?: Record<string, any>) {
   return apiRequest<T>(path, { method: 'DELETE', query })
 }
+
+/**
+ * 统一的图片上传方法
+ * @param file 要上传的文件
+ * @param type 上传类型：'post' | 'avatar'
+ * @returns 上传后的图片URL
+ */
+export async function uploadImage(file: File, type: 'post' | 'avatar'): Promise<string> {
+  const token = localStorage.getItem('token')
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/upload/image?type=${type}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+      body: formData,
+    })
+
+    const json = await response.json()
+
+    if (json.code === 200 && json.data) {
+      return json.data // 返回图片URL
+    }
+
+    // 处理业务错误
+    const error: any = new Error(json.message || '上传失败')
+    error.code = json.code
+    throw error
+  } catch (error: any) {
+    console.error('Upload error:', error)
+    if (error.code) {
+      // 业务错误，直接抛出
+      throw error
+    }
+    // 网络或其他错误
+    throw new Error('图片上传失败，请检查网络连接')
+  }
+}
+

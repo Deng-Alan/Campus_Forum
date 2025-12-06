@@ -1,0 +1,215 @@
+{
+  "meta": {
+    "project": "校园论坛系统 (Campus Forum)",
+    "date": "2025-12-05",
+    "prepared_by": "产品团队"
+  },
+  "product_overview": "校园论坛是专为大学生打造的综合性线上社交平台，提供学习互助、情感表达、匿名倾诉等多样化功能，致力于构建安全、友好且活跃的校园交流社区。",
+  "core_goals": [
+    "为在校大学生提供安全、便捷的社交及学习互助环境",
+    "支持匿名与公开交流，保护用户隐私",
+    "构建健康积极的校园文化，促进校园内多样交流",
+    "实现高效的内容审核与管理，保障社区秩序",
+    "提供丰富的用户互动功能，增强用户粘性与参与度"
+  ],
+  "key_features": [
+    "用户注册、登录及Token刷新机制，保障安全认证",
+    "个人资料管理及用户偏好设置，支持头像上传和主题切换",
+    "帖子的发布、浏览、分类筛选、详情查看及删除，支持多类型帖子（学习互助、表白墙、匿名倾诉）",
+    "评论系统支持发表评论、点赞及评论删除",
+    "点赞功能涵盖帖子与评论的双向互动",
+    "举报系统允许用户对违规内容进行举报并进入管理员审核",
+    "申诉系统支持用户针对被删除或驳回帖子进行申诉及查看申诉状态",
+    "建议反馈功能支持用户提交建议及查看处理进度",
+    "学霸排行榜展示活跃用户积分排名及详细指标",
+    "图片上传功能支持头像和帖子配图上传，支持多格式和大小限制",
+    "管理后台支持管理员登录、数据统计、帖子审核、举报及申诉处理、系统公告和配置管理",
+    "深色与浅色主题切换，优化用户体验",
+    "Redis缓存和发帖频率限制优化系统性能"
+  ],
+  "user_flow_summary": [
+    "用户注册账号，自动创建个人资料，并可进行登录及Token刷新",
+    "用户编辑个人资料与偏好设置，包括头像上传和主题切换",
+    "用户发布不同类型帖子并上传配图，帖子需管理员审核后展示",
+    "用户浏览帖子列表，支持分类与状态筛选，点击查看帖子详情及评论",
+    "用户对帖子和评论进行点赞，管理自身内容如删除帖子和评论",
+    "用户举报违规帖子，提交理由后进入管理员审核队列",
+    "帖子被驳回或删除后，用户可提交申诉，管理员处理申诉请求",
+    "用户通过建议反馈功能提交改善建议，管理员查看并反馈处理状态",
+    "管理员通过后台登录，进行数据统计、帖子及举报管理、申诉和建议处理，以及发布公告及系统配置"
+  ],
+  "validation_criteria": [
+    "用户注册和登录流程顺畅，支持邮箱验证及密码规范",
+    "JWT认证机制正确，实现Token刷新及退出登录功能",
+    "用户资料和偏好正确保存并支持图片上传与主题切换",
+    "帖子支持多类型发布，管理员审核功能正常",
+    "评论发布、点赞及删除功能均正常响应",
+    "举报系统实现举报提交限制及管理员处理流程",
+    "申诉系统支持申诉提交、查看和处理",
+    "建议反馈流程完整，状态更新及时",
+    "排行榜根据积分规则准确排序显示",
+    "管理后台功能完整，支持权限验证及多项管理操作",
+    "系统响应性能符合要求，支持并发用户和快速API响应",
+    "文件上传功能符合格式及大小限制，生成唯一文件名",
+    "安全机制完善，防止SQL注入、XSS及非法操作",
+    "系统界面支持多浏览器和移动端兼容，支持深浅色主题切换"
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "TypeScript",
+      "Next.js 14",
+      "React 18",
+      "TailwindCSS",
+      "Java 11",
+      "Spring Boot 2.7",
+      "PostgreSQL",
+      "Redis",
+      "MyBatis Plus",
+      "JWT Authentication"
+    ],
+    "features": [
+      {
+        "name": "用户认证",
+        "description": "用户注册、登录、Token刷新、退出登录",
+        "files": [
+          "frontend/app/login/page.tsx",
+          "frontend/app/register/page.tsx",
+          "frontend/hooks/useAuth.ts",
+          "frontend/lib/api.ts",
+          "backend/src/main/java/com/campus/forum/controller/AuthController.java",
+          "backend/src/main/java/com/campus/forum/service/impl/AuthServiceImpl.java"
+        ]
+      },
+      {
+        "name": "用户资料管理",
+        "description": "个人资料查看、编辑、头像上传、偏好设置",
+        "files": [
+          "frontend/components/UserSettings.tsx",
+          "frontend/hooks/useUser.ts",
+          "backend/src/main/java/com/campus/forum/controller/UserController.java",
+          "backend/src/main/java/com/campus/forum/service/impl/UserServiceImpl.java"
+        ]
+      },
+      {
+        "name": "帖子发布与浏览",
+        "description": "创建帖子、帖子列表、帖子详情、删除帖子",
+        "files": [
+          "frontend/app/page.tsx",
+          "frontend/app/post/[id]/page.tsx",
+          "frontend/components/CreatePost.tsx",
+          "frontend/components/PostCard.tsx",
+          "backend/src/main/java/com/campus/forum/controller/PostController.java",
+          "backend/src/main/java/com/campus/forum/service/impl/PostServiceImpl.java"
+        ]
+      },
+      {
+        "name": "评论系统",
+        "description": "发表评论、查看评论、删除评论、点赞评论",
+        "files": [
+          "frontend/components/CommentSection.tsx",
+          "backend/src/main/java/com/campus/forum/controller/CommentController.java",
+          "backend/src/main/java/com/campus/forum/service/impl/CommentServiceImpl.java"
+        ]
+      },
+      {
+        "name": "点赞功能",
+        "description": "帖子点赞、评论点赞、取消点赞",
+        "files": [
+          "frontend/components/PostCard.tsx",
+          "frontend/components/CommentSection.tsx",
+          "backend/src/main/java/com/campus/forum/controller/PostController.java",
+          "backend/src/main/java/com/campus/forum/controller/CommentController.java"
+        ]
+      },
+      {
+        "name": "举报系统",
+        "description": "举报帖子、查看举报、处理举报",
+        "files": [
+          "frontend/components/ReportDialog.tsx",
+          "backend/src/main/java/com/campus/forum/controller/ReportController.java",
+          "backend/src/main/java/com/campus/forum/service/impl/ReportServiceImpl.java"
+        ]
+      },
+      {
+        "name": "申诉系统",
+        "description": "提交申诉、查看申诉记录、处理申诉",
+        "files": [
+          "frontend/components/AppealDialog.tsx",
+          "frontend/app/my-appeals/page.tsx",
+          "backend/src/main/java/com/campus/forum/controller/AppealController.java",
+          "backend/src/main/java/com/campus/forum/service/impl/AppealServiceImpl.java"
+        ]
+      },
+      {
+        "name": "建议反馈",
+        "description": "提交建议、查看建议、处理建议",
+        "files": [
+          "frontend/components/SuggestionBox.tsx",
+          "backend/src/main/java/com/campus/forum/controller/SuggestionController.java",
+          "backend/src/main/java/com/campus/forum/service/impl/SuggestionServiceImpl.java"
+        ]
+      },
+      {
+        "name": "排行榜",
+        "description": "学霸排行榜、积分计算、缓存机制",
+        "files": [
+          "frontend/components/Leaderboard.tsx",
+          "backend/src/main/java/com/campus/forum/controller/LeaderboardController.java",
+          "backend/src/main/java/com/campus/forum/service/impl/LeaderboardServiceImpl.java"
+        ]
+      },
+      {
+        "name": "图片上传",
+        "description": "头像上传、帖子配图上传",
+        "files": [
+          "frontend/components/ImageUpload.tsx",
+          "frontend/lib/api.ts",
+          "backend/src/main/java/com/campus/forum/controller/UploadController.java",
+          "backend/src/main/java/com/campus/forum/service/impl/UploadServiceImpl.java"
+        ]
+      },
+      {
+        "name": "管理后台",
+        "description": "后台登录、数据统计、帖子审核、举报处理、公告管理、系统设置",
+        "files": [
+          "frontend/app/admin/login/page.tsx",
+          "frontend/app/admin/page.tsx",
+          "backend/src/main/java/com/campus/forum/controller/AdminController.java",
+          "backend/src/main/java/com/campus/forum/service/impl/AdminServiceImpl.java"
+        ]
+      },
+      {
+        "name": "我的帖子",
+        "description": "查看个人发帖历史、管理自己的帖子",
+        "files": [
+          "frontend/app/my-posts/page.tsx",
+          "backend/src/main/java/com/campus/forum/controller/PostController.java"
+        ]
+      },
+      {
+        "name": "主题切换",
+        "description": "深色/浅色主题切换",
+        "files": [
+          "frontend/contexts/ThemeContext.tsx",
+          "frontend/components/UserSettings.tsx"
+        ]
+      },
+      {
+        "name": "公告展示",
+        "description": "首页公告展示、公告管理",
+        "files": [
+          "frontend/components/Announcements.tsx",
+          "backend/src/main/java/com/campus/forum/controller/AnnouncementController.java"
+        ]
+      },
+      {
+        "name": "数据缓存",
+        "description": "Redis缓存、排行榜缓存、发帖频率限制",
+        "files": [
+          "backend/src/main/java/com/campus/forum/util/RedisUtil.java",
+          "backend/src/main/java/com/campus/forum/config/RedisConfig.java"
+        ]
+      }
+    ]
+  }
+}

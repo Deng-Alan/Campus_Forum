@@ -89,6 +89,10 @@ export default function MyPosts() {
     }
   }
 
+  const handleDelete = (postId: string) => {
+    setPosts(prev => prev.filter(post => post.id !== postId))
+  }
+
   const handleLike = async (postId: string) => {
     try {
       const data = await apiPost<{ likes: number }>(`/posts/${postId}/like`)
@@ -169,6 +173,7 @@ export default function MyPosts() {
                   key={post.id}
                   post={post}
                   onLike={handleLike}
+                  onDelete={handleDelete}
                   onAppeal={handleAppeal}
                 />
               ))}
