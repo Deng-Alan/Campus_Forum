@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { apiGet, apiPut } from '@/lib/api'
 import { useAuth } from './useAuth'
 
 export interface UserInfo {
@@ -26,16 +26,14 @@ export function useUser() {
   const loadUserPreferences = async () => {
     if (!authUser) return
 
-    const { data, error } = await supabase
-      .from('user_preferences')
-      .select('is_anonymous')
-      .eq('user_id', authUser.userId)
-      .single()
-
-    if (data && !error) {
-      setUser({ isAnonymous: data.is_anonymous })
+    try {
+      const data = await apiGet<{ isAnonymous: boolean }>('/users/preferences')
+      setUser({ isAnonymous: !!data.isAnonymous })
+    } catch {
+      // 出错时保持默认配置
+    } finally {
+      setIsLoaded(true)
     }
-    setIsLoaded(true)
   }
 
   // 切换匿名模式 - 保存到数据库
@@ -46,14 +44,11 @@ export function useUser() {
     setUser(newUser)
 
     // 更新数据库
-    await supabase
-      .from('user_preferences')
-      .upsert({
-        user_id: authUser.userId,
-        is_anonymous: isAnonymous
-      }, {
-        onConflict: 'user_id'
-      })
+    try {
+      await apiPut<void>('/users/preferences', { isAnonymous })
+    } catch {
+      // 回滚本地状态（可选）
+    }
   }
 
   // 获取显示名称（考虑匿名模式）
@@ -74,12 +69,15 @@ export function useUser() {
   const getPostIds = async (): Promise<string[]> => {
     if (!authUser) return []
 
-    const { data } = await supabase
-      .from('posts')
-      .select('id')
-      .eq('user_id', authUser.userId)
-
-    return data ? data.map(p => p.id) : []
+    try {
+      const data = await apiGet<{ list: { id: string }[]; total: number; page: number; size: number }>(
+        '/posts/my',
+        { page: 1, size: 100 }
+      )
+      return Array.isArray(data.list) ? data.list.map(p => p.id) : []
+    } catch {
+      return []
+    }
   }
 
   return {

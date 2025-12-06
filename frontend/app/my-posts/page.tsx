@@ -4,16 +4,14 @@ import { useEffect, useState } from 'react'
 import { PostCard } from '@/components/PostCard'
 import { UserSettings } from '@/components/UserSettings'
 import { AppealDialog } from '@/components/AppealDialog'
-import { supabase } from '@/lib/supabase'
 import { Post } from '@/types'
-import { useUser } from '@/hooks/useUser'
 import { useAuth } from '@/hooks/useAuth'
+import { apiGet, apiPost } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, History, LogOut } from 'lucide-react'
 
 export default function MyPosts() {
-  const { getPostIds } = useUser()
   const { logout, user } = useAuth()
   const router = useRouter()
   const [posts, setPosts] = useState<Post[]>([])
@@ -33,26 +31,57 @@ export default function MyPosts() {
         return
       }
 
-      // 直接从数据库查询当前用户的帖子
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          quoted_post:quoted_post_id (
-            id,
-            content,
-            author_name,
-            created_at
-          )
-        `)
-        .eq('user_id', user.userId)
-        .order('created_at', { ascending: false })
+      const data = await apiGet<{
+        list: {
+          id: string
+          content: string
+          authorName: string
+          avatarUrl?: string
+          type: any
+          subject?: string
+          imageUrl?: string
+          likes: number
+          commentCount: number
+          isFeatured: boolean
+          reviewStatus: 'pending' | 'approved' | 'rejected'
+          status: 'pending' | 'approved' | 'rejected' | 'removed'
+          quotedPost?: {
+            id: string
+            content: string
+            authorName: string
+          }
+          createdAt: string
+        }[]
+        total: number
+        page: number
+        size: number
+      }>('/posts/my', { page: 1, size: 100 })
 
-      if (error) {
-        console.error('Error fetching my posts:', error)
-      } else {
-        setPosts(data || [])
-      }
+      const mapped: Post[] = (data.list || []).map(item => ({
+        id: item.id,
+        content: item.content,
+        author_name: item.authorName,
+        created_at: item.createdAt,
+        likes: item.likes ?? 0,
+        type: item.type,
+        image_url: item.imageUrl,
+        avatar_url: item.avatarUrl,
+        subject: item.subject,
+        is_featured: item.isFeatured,
+        review_status: item.reviewStatus,
+        comment_count: item.commentCount,
+        quoted_post_id: item.quotedPost?.id,
+        quoted_post: item.quotedPost
+          ? {
+              id: item.quotedPost.id,
+              content: item.quotedPost.content,
+              author_name: item.quotedPost.authorName,
+            }
+          : undefined,
+        status: item.status,
+      }))
+
+      setPosts(mapped)
     } catch (err) {
       console.error('Unexpected error:', err)
     } finally {
@@ -61,12 +90,11 @@ export default function MyPosts() {
   }
 
   const handleLike = async (postId: string) => {
-    // 在这个页面也支持点赞，但只更新本地状态
-    setPosts(posts.map(post => 
-      post.id === postId ? { ...post, likes: post.likes + 1 } : post
-    ))
     try {
-      await supabase.rpc('increment_likes', { row_id: postId })
+      const data = await apiPost<{ likes: number }>(`/posts/${postId}/like`)
+      setPosts(prev => prev.map(post => 
+        post.id === postId ? { ...post, likes: data.likes } : post
+      ))
     } catch (e) {
       console.error(e)
     }
@@ -90,6 +118,17 @@ export default function MyPosts() {
               <History />
               我的发帖历史
             </div>
+          </div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-gray-400">
+              在这里可以管理你的个人信息和历史发帖记录。
+            </div>
+            <Link
+              href="/my-appeals"
+              className="text-xs text-blue-400 hover:underline"
+            >
+              查看我的申诉记录
+            </Link>
           </div>
           <button
             onClick={() => {

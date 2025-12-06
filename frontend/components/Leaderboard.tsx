@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Trophy, Medal, TrendingUp } from 'lucide-react'
 import clsx from 'clsx'
-import { supabase } from '@/lib/supabase'
+import { apiGet } from '@/lib/api'
 
 interface LeaderboardUser {
   author_name: string
@@ -26,17 +26,27 @@ export function Leaderboard() {
   const fetchLeaderboard = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase.rpc('get_study_leaderboard', { 
-        days_limit: daysFilter,
-        subject_filter: subjectFilter 
+      const data = await apiGet<{
+        authorName: string
+        postCount: number
+        commentCount: number
+        totalLikes: number
+        score: number
+      }[]>('/leaderboard/study', {
+        days: daysFilter,
+        subject: subjectFilter || undefined,
+        limit: 10,
       })
-      
-      if (error) {
-        console.error('Error fetching leaderboard:', error)
-        return
-      }
-      
-      setLeaders(data || [])
+
+      const mapped: LeaderboardUser[] = data.map(item => ({
+        author_name: item.authorName,
+        post_count: item.postCount,
+        comment_count: item.commentCount,
+        total_likes: item.totalLikes,
+        score: item.score,
+      }))
+
+      setLeaders(mapped)
     } catch (err) {
       console.error('Leaderboard fetch error:', err)
     } finally {

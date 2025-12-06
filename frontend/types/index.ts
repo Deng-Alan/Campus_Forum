@@ -17,7 +17,11 @@ export interface Post {
   review_status?: 'pending' | 'approved' | 'rejected' // 审核状态
   comment_count?: number // 评论数量（可选，前端计算）
   quoted_post_id?: string // 引用的帖子ID
-  quoted_post?: Post // 引用的帖子（关联查询）
+  quoted_post?: {
+    id: string
+    content: string
+    author_name: string
+  } // 引用的帖子（精简信息）
   status?: 'pending' | 'approved' | 'rejected' | 'removed' // 帖子状态
 }
 

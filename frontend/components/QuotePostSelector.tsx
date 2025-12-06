@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { X, Search, Quote } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { Post } from '@/types'
+import { apiGet } from '@/lib/api'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 
@@ -26,21 +26,54 @@ export function QuotePostSelector({ onSelect, onClose, currentUserId }: QuotePos
   const fetchPosts = async () => {
     setLoading(true)
     try {
-      let query = supabase
-        .from('posts')
-        .select('*')
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false })
-        .limit(50)
+      const data = await apiGet<{
+        list: {
+          id: string
+          content: string
+          authorName: string
+          avatarUrl?: string
+          type: string
+          subject?: string
+          imageUrl?: string
+          likes: number
+          commentCount: number
+          isFeatured: boolean
+          reviewStatus: string
+          status: string
+          createdAt: string
+        }[]
+        total: number
+        page: number
+        size: number
+        pages: number
+      }>('/posts', {
+        page: 1,
+        size: 50,
+        type: undefined,
+        subject: undefined,
+      })
+
+      let mapped: Post[] = (data.list || []).map(item => ({
+        id: item.id,
+        content: item.content,
+        author_name: item.authorName,
+        created_at: item.createdAt,
+        likes: item.likes ?? 0,
+        type: item.type as any,
+        image_url: item.imageUrl,
+        avatar_url: item.avatarUrl,
+        subject: item.subject,
+        is_featured: item.isFeatured,
+        review_status: item.reviewStatus as any,
+        comment_count: item.commentCount,
+        status: item.status as any,
+      }))
 
       if (filter === 'mine' && currentUserId) {
-        query = query.eq('user_id', currentUserId)
+        mapped = mapped.filter(p => p.student_id === currentUserId || p.author_name === currentUserId)
       }
 
-      const { data, error } = await query
-
-      if (error) throw error
-      setPosts(data || [])
+      setPosts(mapped)
     } catch (err) {
       console.error('Fetch posts error:', err)
     } finally {

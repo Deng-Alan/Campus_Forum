@@ -6,9 +6,10 @@ import clsx from 'clsx'
 import { useState } from 'react'
 import { CommentSection } from './CommentSection'
 import { sharePost } from '@/lib/share-utils'
-import { supabase } from '@/lib/supabase'
+import { apiDelete, apiPost } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import { useUser } from '@/hooks/useUser'
+import Link from 'next/link'
 
 interface PostCardProps {
   post: Post
@@ -60,12 +61,7 @@ export function PostCard({ post, onLike, onDelete, currentUsername, onAppeal }: 
     if (!confirm('确定要删除这条帖子吗？删除后无法恢复。')) return
     
     try {
-      const { error } = await supabase
-        .from('posts')
-        .delete()
-        .eq('id', post.id)
-      
-      if (error) throw error
+      await apiDelete<void>(`/posts/${post.id}`)
       
       alert('删除成功！')
       if (onDelete) {
@@ -84,11 +80,7 @@ export function PostCard({ post, onLike, onDelete, currentUsername, onAppeal }: 
     const reason = window.prompt('请填写举报理由（如：广告、违规内容）：')
     if (reason) {
       try {
-        const { error } = await supabase
-          .from('reports')
-          .insert([{ post_id: post.id, reason }])
-        
-        if (error) throw error
+        await apiPost<void>('/reports', { postId: post.id, reason })
         alert('举报成功，管理员会尽快处理！')
       } catch (e) {
         console.error(e)
@@ -146,9 +138,17 @@ export function PostCard({ post, onLike, onDelete, currentUsername, onAppeal }: 
         </div>
       )}
       
-      <p className="text-gray-200 mb-4 whitespace-pre-wrap leading-relaxed text-[15px]">
+      <p className="text-gray-200 mb-2 whitespace-pre-wrap leading-relaxed text-[15px]">
         {post.content}
       </p>
+      <div className="mb-4">
+        <Link
+          href={`/post/${post.id}`}
+          className="text-xs text-blue-400 hover:underline"
+        >
+          查看详情
+        </Link>
+      </div>
       
       {post.image_url && (
         <div className="mb-4 rounded-lg overflow-hidden border border-white/5 relative">

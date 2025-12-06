@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { Post } from '@/types'
+import { apiPost } from '@/lib/api'
 
 interface AppealDialogProps {
   post: Post
@@ -28,13 +28,10 @@ export function AppealDialog({ post, onClose, onSuccess }: AppealDialogProps) {
     setError('')
 
     try {
-      // 调用 RPC 函数提交申诉
-      const { data, error: rpcError } = await supabase.rpc('submit_appeal', {
-        p_post_id: post.id,
-        p_reason: reason.trim()
+      await apiPost<void>('/appeals', {
+        postId: post.id,
+        reason: reason.trim(),
       })
-
-      if (rpcError) throw rpcError
 
       alert('申诉已提交，请等待管理员处理')
       onSuccess()

@@ -66,8 +66,9 @@ public class UploadServiceImpl implements UploadService {
         String relativePath = type + "/" + filename;
 
         try {
-            // 确保目录存在
-            Path uploadDir = Paths.get(uploadPath, type);
+            // 计算上传根目录（转换为绝对路径），并在其下创建子目录
+            Path rootPath = Paths.get(uploadPath).toAbsolutePath().normalize();
+            Path uploadDir = rootPath.resolve(type);
             if (!Files.exists(uploadDir)) {
                 Files.createDirectories(uploadDir);
             }

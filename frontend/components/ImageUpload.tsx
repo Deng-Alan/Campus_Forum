@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Upload, X, Image as ImageIcon } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { API_BASE_URL, getAuthHeader } from '@/lib/api'
 
 interface ImageUploadProps {
   onImageUploaded: (url: string) => void
@@ -36,26 +36,24 @@ export function ImageUpload({ onImageUploaded, currentImage, onRemove }: ImageUp
     setUploading(true)
 
     try {
-      // 生成唯一文件名
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`
-      const filePath = `posts/${fileName}`
+      const formData = new FormData()
+      formData.append('file', file)
 
-      // 上传到 Supabase Storage
-      const { data, error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        })
+      const url = `${API_BASE_URL}/upload/image?type=post`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+        },
+        body: formData,
+      })
 
-      if (uploadError) throw uploadError
+      const json: any = await res.json()
+      if (!res.ok || json.code !== 200 || !json.data?.url) {
+        throw new Error(json.message || '上传失败')
+      }
 
-      // 获取公开 URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(filePath)
-
+      const publicUrl = json.data.url as string
       setPreview(publicUrl)
       onImageUploaded(publicUrl)
     } catch (err) {

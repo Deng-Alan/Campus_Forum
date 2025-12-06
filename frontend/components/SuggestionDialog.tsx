@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { X, Lightbulb, Bug, TrendingUp, MessageSquare } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { SuggestionCategory } from '@/types'
+import { apiPost } from '@/lib/api'
 
 interface SuggestionDialogProps {
   onClose: () => void
@@ -36,13 +36,11 @@ export function SuggestionDialog({ onClose, onSuccess }: SuggestionDialogProps) 
     setError('')
 
     try {
-      const { data, error: rpcError } = await supabase.rpc('submit_suggestion', {
-        p_content: content.trim(),
-        p_category: category,
-        p_is_anonymous: isAnonymous
+      await apiPost<void>('/suggestions', {
+        content: content.trim(),
+        category,
+        isAnonymous,
       })
-
-      if (rpcError) throw rpcError
 
       alert('感谢您的反馈！我们会认真考虑您的建议')
       onSuccess()

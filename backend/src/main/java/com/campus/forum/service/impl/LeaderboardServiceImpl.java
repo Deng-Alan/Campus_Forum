@@ -42,8 +42,19 @@ public class LeaderboardServiceImpl implements LeaderboardService {
 
         // 尝试从缓存获取
         String cacheKey = LEADERBOARD_CACHE_KEY + days + ":" + (subject != null ? subject : "all");
-        Object cached = redisUtil.get(cacheKey);
-        if (cached != null && cached instanceof List) {
+        Object cached = null;
+        try {
+            cached = redisUtil.get(cacheKey);
+        } catch (Exception e) {
+            // Redis 反序列化等异常时，忽略缓存并重新计算，避免接口整体失败
+            log.warn("读取排行榜缓存失败，忽略缓存重新计算，cacheKey={}", cacheKey, e);
+            try {
+                redisUtil.delete(cacheKey);
+            } catch (Exception ignore) {
+                // ignore delete error
+            }
+        }
+        if (cached instanceof List) {
             @SuppressWarnings("unchecked")
             List<LeaderboardVO> cachedList = (List<LeaderboardVO>) cached;
             return cachedList.stream().limit(limit).toList();

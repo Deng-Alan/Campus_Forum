@@ -54,7 +54,8 @@ public class SecurityConfig {
             "/uploads/**",
             
             // 健康检查
-            "/actuator/**"
+            "/actuator/**",
+            "/health"
     };
 
     /**
@@ -66,8 +67,16 @@ public class SecurityConfig {
             "/api/v1/posts/*/comments",
             "/api/v1/announcements",
             "/api/v1/leaderboard/study",
-            "/api/v1/users/*",
             "/api/v1/users/*/profile"
+    };
+
+    /**
+     * 公开 POST 路径（无需认证）
+     * 用于支持匿名举报、匿名建议等功能
+     */
+    private static final String[] PUBLIC_POST_PATHS = {
+            "/api/v1/reports",
+            "/api/v1/suggestions"
     };
 
     @Bean
@@ -93,6 +102,8 @@ public class SecurityConfig {
                 .antMatchers(WHITE_LIST).permitAll()
                 // 公开 GET 请求
                 .antMatchers(HttpMethod.GET, PUBLIC_GET_PATHS).permitAll()
+                // 公开 POST 请求（举报、建议支持匿名提交）
+                .antMatchers(HttpMethod.POST, PUBLIC_POST_PATHS).permitAll()
                 // OPTIONS 请求放行
                 .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // 管理员接口

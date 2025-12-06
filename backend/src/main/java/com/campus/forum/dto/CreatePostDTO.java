@@ -16,7 +16,7 @@ public class CreatePostDTO {
      * 帖子内容
      */
     @NotBlank(message = "帖子内容不能为空")
-    @Size(min = 5, max = 2000, message = "帖子内容长度为5-2000个字符")
+    @Size(min = 1, max = 5000, message = "帖子内容长度为1-5000个字符")
     private String content;
 
     /**

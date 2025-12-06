@@ -7,7 +7,7 @@ import { Leaderboard } from '@/components/Leaderboard'
 import { UserSettings } from '@/components/UserSettings'
 import { AppealDialog } from '@/components/AppealDialog'
 import { SuggestionDialog } from '@/components/SuggestionDialog'
-import { supabase } from '@/lib/supabase'
+import { apiGet, apiPost } from '@/lib/api'
 import { Post, CreatePostDTO, Announcement, PostType } from '@/types'
 import clsx from 'clsx'
 import { useUser } from '@/hooks/useUser'
@@ -55,16 +55,25 @@ export default function Home() {
 
   const fetchAnnouncements = async () => {
     try {
-      const { data, error } = await supabase
-        .from('announcements')
-        .select('*')
-        .order('is_top', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(5)
+      const data = await apiGet<{
+        id: string
+        title: string
+        content: string
+        type: 'notice' | 'activity' | 'urgent'
+        isTop: boolean
+        createdAt: string
+      }[]>('/announcements', { limit: 5 })
 
-      if (!error && data) {
-        setAnnouncements(data)
-      }
+      const mapped: Announcement[] = data.map(item => ({
+        id: item.id,
+        title: item.title,
+        content: item.content,
+        type: item.type,
+        is_top: item.isTop,
+        created_at: item.createdAt,
+      }))
+
+      setAnnouncements(mapped)
     } catch (err) {
       console.error('Error fetching announcements:', err)
     }
@@ -80,38 +89,63 @@ export default function Home() {
       setLoading(true)
     }
     try {
-      let query = supabase
-        .from('posts')
-        .select(`
-          *,
-          quoted_post:quoted_post_id (
-            id,
-            content,
-            author_name,
-            created_at
-          )
-        `)
-        .eq('review_status', 'approved')
-        .order('is_featured', { ascending: false })
-        .order('created_at', { ascending: false })
+      const data = await apiGet<{
+        list: {
+          id: string
+          content: string
+          authorName: string
+          avatarUrl?: string
+          type: PostType
+          subject?: string
+          imageUrl?: string
+          likes: number
+          commentCount: number
+          isFeatured: boolean
+          reviewStatus: 'pending' | 'approved' | 'rejected'
+          status: 'pending' | 'approved' | 'rejected' | 'removed'
+          quotedPost?: {
+            id: string
+            content: string
+            authorName: string
+          }
+          createdAt: string
+        }[]
+        total: number
+        page: number
+        size: number
+        pages: number
+      }>('/posts', {
+        page: 1,
+        size: 50,
+        type: type === 'all' ? undefined : type,
+        subject: type === 'study_help' ? options?.subject || undefined : undefined,
+      })
 
-      if (type !== 'all') {
-        query = query.eq('type', type)
-      }
+      const mapped: Post[] = (data.list || []).map(item => ({
+        id: item.id,
+        content: item.content,
+        author_name: item.authorName,
+        created_at: item.createdAt,
+        likes: item.likes ?? 0,
+        type: item.type,
+        image_url: item.imageUrl,
+        avatar_url: item.avatarUrl,
+        subject: item.subject,
+        is_featured: item.isFeatured,
+        review_status: item.reviewStatus,
+        comment_count: item.commentCount,
+        quoted_post_id: item.quotedPost?.id,
+        quoted_post: item.quotedPost
+          ? {
+              id: item.quotedPost.id,
+              content: item.quotedPost.content,
+              author_name: item.quotedPost.authorName,
+            }
+          : undefined,
+        status: item.status,
+      }))
 
-      // 如果是学习互助且选择了学科筛选
-      if (type === 'study_help' && options?.subject) {
-        query = query.eq('subject', options.subject)
-      }
-
-      const { data, error } = await query
-
-      if (error) {
-        console.error('Error fetching posts:', error)
-        setPosts(MOCK_POSTS)
-      } else {
-        setPosts(data || [])
-      }
+      setPosts(mapped)
     } catch (err) {
       console.error('Unexpected error:', err)
       setPosts(MOCK_POSTS)
@@ -125,70 +159,26 @@ export default function Home() {
   const handleCreatePost = async (data: CreatePostDTO) => {
     if (!user) return
 
-    // 每日发帖上限检查
     try {
-      // 1. 获取发帖上限配置
-      const { data: settings } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'daily_post_limit')
-        .single()
-      
-      const dailyLimit = settings ? parseInt(settings.value) : 3
-      
-      // 2. 检查今日发帖次数 (使用 RPC 函数)
-      const { data: canPost, error: limitError } = await supabase
-        .rpc('check_daily_post_limit', {
-          p_user_id: user.userId,
-          p_limit: dailyLimit
-        })
-
-      if (limitError || !canPost) {
-        // 获取当前已发帖数
-        const { data: currentCount } = await supabase
-          .rpc('get_daily_post_count', { p_user_id: user.userId })
-        
-        alert(`今日发帖已达上限 (${currentCount || dailyLimit}/${dailyLimit}条)，请明天再来分享吧！`)
-        return
-      }
-
-      // 3. 创建帖子，关联 user_id
-      const newPost = {
+      const body = {
         content: data.content,
-        author_name: data.author_name,
         type: data.type,
         subject: data.subject,
-        image_url: data.image_url,
-        avatar_url: user.avatar,
-        user_id: user.userId, // 关联用户ID
-        likes: 0,
-        review_status: 'pending' as const,
-        quoted_post_id: (data as any).quoted_post_id,
+        imageUrl: data.image_url,
+        quotedPostId: (data as any).quoted_post_id,
       }
 
-      const { data: newPosts, error } = await supabase
-        .from('posts')
-        .insert([newPost])
-        .select()
+      const result = await apiPost<{
+        id: string
+        dailyPostCount: number
+        dailyPostLimit: number
+      }>('/posts', body)
 
-      if (error) {
-        console.error('Error creating post:', error)
-        alert('发布失败：' + error.message)
-      } else {
-        // 4. 增加今日发帖计数 (使用 RPC 函数)
-        await supabase.rpc('increment_daily_post_count', {
-          p_user_id: user.userId
-        })
-        
-        // 5. 获取更新后的计数
-        const { data: newCount } = await supabase
-          .rpc('get_daily_post_count', { p_user_id: user.userId })
-        
-        alert(`发布成功！(今日已发 ${newCount || 1}/${dailyLimit})，已提交审核。`)
-        fetchPosts(activeTab)
-      }
-    } catch (err) {
-        console.error(err)
+      alert(`发布成功！(今日已发 ${result.dailyPostCount}/${result.dailyPostLimit})，已提交审核。`)
+      fetchPosts(activeTab)
+    } catch (err: any) {
+      console.error(err)
+      alert(err?.message || '发布失败，请稍后重试')
     }
   }
 
@@ -198,19 +188,11 @@ export default function Home() {
       return
     }
 
-    setPosts(posts.map(post => 
-      post.id === postId ? { ...post, likes: post.likes + 1 } : post
-    ))
-
     try {
-      const { error } = await supabase.rpc('increment_likes', { row_id: postId })
-      
-      if (error) {
-        console.error('Error liking post:', error)
-        setPosts(posts.map(post => 
-            post.id === postId ? { ...post, likes: post.likes - 1 } : post
-        ))
-      }
+      const data = await apiPost<{ likes: number }>(`/posts/${postId}/like`)
+      setPosts(prev => prev.map(post => 
+        post.id === postId ? { ...post, likes: data.likes } : post
+      ))
     } catch (err) {
       console.error('Error liking post:', err)
     }
@@ -264,7 +246,10 @@ export default function Home() {
               意见反馈
             </button>
             {isLoggedIn ? (
-              <div className="flex items-center gap-2 ml-4">
+              <Link
+                href="/my-posts"
+                className="flex items-center gap-2 ml-4 px-2 py-1 rounded-full hover:bg-white/10 transition-colors"
+              >
                 {user?.avatar ? (
                   <img 
                     src={user.avatar} 
@@ -277,7 +262,7 @@ export default function Home() {
                   </div>
                 )}
                 <span className="text-gray-100 text-sm">{user?.nickname}</span>
-              </div>
+              </Link>
             ) : (
               <div className="flex items-center gap-3 ml-4 text-xs">
                 <Link href="/login" className="hover:text-white">

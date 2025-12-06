@@ -2,8 +2,22 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import Cookies from 'js-cookie'
+import { apiPost, saveTokens, clearTokens } from '@/lib/api'
+
+interface LoginResponse {
+  accessToken: string
+  refreshToken: string
+  tokenType: string
+  expiresIn: number
+  user: {
+    id: string
+    username: string
+    nickname: string
+    email: string
+    role: string
+  }
+}
 
 export default function AdminLogin() {
   const [usernameOrEmail, setUsernameOrEmail] = useState('')
@@ -18,60 +32,28 @@ export default function AdminLogin() {
     setLoading(true)
 
     try {
-      let email = usernameOrEmail
-      
-      // 如果不包含@，说明是用户名，需要查询邮箱
-      if (!email.includes('@')) {
-        const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('email')
-          .eq('username', usernameOrEmail)
-          .single()
-        
-        if (profileError || !profile?.email) {
-          setError('用户名不存在')
-          setLoading(false)
-          return
-        }
-
-        email = profile.email
-      }
-
-      // 1. 使用 Supabase Auth 登录
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password
+      const resp = await apiPost<LoginResponse>('/auth/login', {
+        usernameOrEmail,
+        password,
       })
 
-      if (authError) {
-        setError('用户名/邮箱或密码错误')
-        setLoading(false)
-        return
-      }
-
-      if (!authData.user) {
-        setError('登录失败')
-        setLoading(false)
-        return
-      }
-
-      // 2. 检查是否是管理员
-      const { data: isAdminData, error: isAdminError } = await supabase
-        .rpc('is_admin')
-
-      if (isAdminError || !isAdminData) {
-        // 不是管理员，退出登录
-        await supabase.auth.signOut()
+      if (!resp.user || resp.user.role !== 'admin') {
+        // 非管理员账号，不允许进入后台
+        clearTokens()
         setError('您不是管理员，无权访问')
         setLoading(false)
         return
       }
 
-      // 3. 设置管理员 token
+      // 保存 Token，后续 /admin 接口依赖 Authorization 头
+      saveTokens(resp.accessToken, resp.refreshToken)
+
+      // 标记管理员登录状态（仅用于前端路由守卫）
       Cookies.set('admin_token', 'true', { expires: 1 })
       router.push('/admin')
-    } catch (err) {
-      setError('登录失败，请重试')
+    } catch (err: any) {
+      setError(err?.message || '登录失败，请重试')
+    } finally {
       setLoading(false)
     }
   }

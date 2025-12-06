@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { User, Edit2, Check, X, Camera } from 'lucide-react'
 import { useUser } from '@/hooks/useUser'
 import { useAuth } from '@/hooks/useAuth'
-import { supabase } from '@/lib/supabase'
+import { API_BASE_URL, getAuthHeader } from '@/lib/api'
 import clsx from 'clsx'
 
 export function UserSettings() {
@@ -114,29 +114,25 @@ export function UserSettings() {
     setUploadingAvatar(true)
 
     try {
-      // 生成唯一文件名（移除用户名中的特殊字符）
-      const fileExt = file.name.split('.').pop()
-      const safeUsername = authUser?.username.replace(/[^a-zA-Z0-9]/g, '_') || 'user'
-      const fileName = `avatar_${safeUsername}_${Date.now()}.${fileExt}`
-      const filePath = `avatars/${fileName}`
+      const formData = new FormData()
+      formData.append('file', file)
 
-      // 上传到 Supabase Storage
-      const { data, error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false // 不覆盖已有文件，避免权限问题
-        })
+      const url = `${API_BASE_URL}/upload/image?type=avatar`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+        },
+        body: formData,
+      })
 
-      if (uploadError) throw uploadError
+      const json: any = await res.json()
+      if (!res.ok || json.code !== 200 || !json.data?.url) {
+        throw new Error(json.message || '上传失败')
+      }
 
-      // 获取公开 URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(filePath)
-
-      // 更新用户头像
-      updateAvatar(publicUrl)
+      const publicUrl = json.data.url as string
+      await updateAvatar(publicUrl)
       alert('头像更新成功！')
     } catch (err) {
       console.error('Upload error:', err)

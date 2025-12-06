@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { Heart, Send } from 'lucide-react'
-import { Comment, CreateCommentDTO } from '@/types'
-import { supabase } from '@/lib/supabase'
+import { Comment } from '@/types'
+import { apiGet, apiPost } from '@/lib/api'
 import { filterContent } from '@/lib/content-filter'
-import { useUser } from '@/hooks/useUser'
 import clsx from 'clsx'
 
 interface CommentSectionProps {
@@ -14,7 +13,6 @@ interface CommentSectionProps {
 }
 
 export function CommentSection({ postId, isOpen }: CommentSectionProps) {
-  const { getDisplayName } = useUser()
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
   const [loading, setLoading] = useState(false)
@@ -29,14 +27,30 @@ export function CommentSection({ postId, isOpen }: CommentSectionProps) {
   const fetchComments = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('comments')
-        .select('*')
-        .eq('post_id', postId)
-        .order('created_at', { ascending: true })
+      const data = await apiGet<{
+        list: {
+          id: string
+          postId: string
+          content: string
+          authorName: string
+          likes: number
+          createdAt: string
+        }[]
+        total: number
+        page: number
+        size: number
+      }>(`/posts/${postId}/comments`, { page: 1, size: 100 })
 
-      if (error) throw error
-      setComments(data || [])
+      const mapped: Comment[] = (data.list || []).map(item => ({
+        id: item.id,
+        post_id: item.postId,
+        content: item.content,
+        author_name: item.authorName,
+        likes: item.likes ?? 0,
+        created_at: item.createdAt,
+      }))
+
+      setComments(mapped)
     } catch (error) {
       console.error('Error fetching comments:', error)
     } finally {
@@ -57,17 +71,9 @@ export function CommentSection({ postId, isOpen }: CommentSectionProps) {
 
     setSubmitting(true)
     try {
-      const commentData: CreateCommentDTO = {
-        post_id: postId,
+      await apiPost<void>(`/posts/${postId}/comments`, {
         content: filtered.text,
-        author_name: getDisplayName()
-      }
-
-      const { error } = await supabase
-        .from('comments')
-        .insert([commentData])
-
-      if (error) throw error
+      })
 
       setNewComment('')
       fetchComments()
@@ -80,20 +86,13 @@ export function CommentSection({ postId, isOpen }: CommentSectionProps) {
   }
 
   const handleLike = async (commentId: string) => {
-    setComments(comments.map(c => 
-      c.id === commentId ? { ...c, likes: c.likes + 1 } : c
-    ))
-
     try {
-      const { error } = await supabase.rpc('increment_comment_likes', { comment_id: commentId })
-      if (error) {
-        console.error('Error liking comment:', error)
-        setComments(comments.map(c => 
-          c.id === commentId ? { ...c, likes: c.likes - 1 } : c
-        ))
-      }
+      const data = await apiPost<{ likes: number }>(`/comments/${commentId}/like`)
+      setComments(prev => prev.map(c =>
+        c.id === commentId ? { ...c, likes: data.likes } : c
+      ))
     } catch (err) {
-      console.error(err)
+      console.error('Error liking comment:', err)
     }
   }
 

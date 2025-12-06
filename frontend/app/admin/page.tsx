@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
-import { supabase } from '@/lib/supabase'
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
 import { Post, Announcement, Report, Appeal, Suggestion } from '@/types'
 import { Trash2, LogOut, Megaphone, FileText, AlertTriangle, Check, X, Plus, Settings, Menu, MessageSquare, TrendingUp } from 'lucide-react'
 import clsx from 'clsx'
@@ -139,103 +139,202 @@ export default function AdminDashboard() {
     }
     try {
       if (activeTab === 'posts') {
-        let query = supabase
-          .from('posts')
-          .select('*')
-          .order('created_at', { ascending: false })
+        const data = await apiGet<{
+          list: {
+            id: string
+            content: string
+            authorName: string
+            type: string
+            subject?: string
+            imageUrl?: string
+            likes: number
+            commentCount: number
+            isFeatured: boolean
+            reviewStatus: string
+            status: string
+            createdAt: string
+          }[]
+          total: number
+          page: number
+          size: number
+        }>('/admin/posts', {
+          page: 1,
+          size: 100,
+          type: postTypeFilter === 'all' ? undefined : postTypeFilter,
+          reviewStatus: postReviewFilter === 'all' ? undefined : postReviewFilter,
+        })
 
-        if (postTypeFilter !== 'all') {
-          query = query.eq('type', postTypeFilter)
-        }
+        const mapped: Post[] = (data.list || []).map(item => ({
+          id: item.id,
+          content: item.content,
+          author_name: item.authorName,
+          created_at: item.createdAt,
+          likes: item.likes ?? 0,
+          type: item.type as any,
+          subject: item.subject,
+          image_url: item.imageUrl,
+          is_featured: item.isFeatured,
+          review_status: item.reviewStatus as any,
+          comment_count: item.commentCount,
+          status: item.status as any,
+        }))
 
-        if (postReviewFilter !== 'all') {
-          query = query.eq('review_status', postReviewFilter)
-        }
-
-        if (postSearch.trim()) {
-          const keyword = postSearch.trim().replace(/%/g, '').replace(/,/g, '')
-          const pattern = `%${keyword}%`
-          query = query.or(`content.ilike.${pattern},author_name.ilike.${pattern}`)
-        }
-
-        const { data } = await query
-        setPosts(data || [])
-      } else if (activeTab === 'announcements') {
-        const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false })
-        setAnnouncements(data || [])
-      } else if (activeTab === 'reports') {
-        const { data } = await supabase.from('reports').select('*, posts(*)').order('created_at', { ascending: false })
-        setReports((data as any) || [])
-      } else if (activeTab === 'appeals') {
-        let query = supabase
-          .from('appeals')
-          .select(`
-            *,
-            posts:post_id (
-              id,
-              content,
-              author_name,
-              status,
-              review_status,
-              created_at
+        const filtered = postSearch.trim()
+          ? mapped.filter(p =>
+              p.content.includes(postSearch.trim()) ||
+              p.author_name.includes(postSearch.trim())
             )
-          `)
-          .order('created_at', { ascending: false })
+          : mapped
 
-        if (appealStatusFilter !== 'all') {
-          query = query.eq('status', appealStatusFilter)
-        }
-
-        const { data } = await query
-        setAppeals((data as any) || [])
+        setPosts(filtered)
+      } else if (activeTab === 'announcements') {
+        const data = await apiGet<{
+          id: string
+          title: string
+          content: string
+          type: 'notice' | 'activity' | 'urgent'
+          isTop: boolean
+          createdAt: string
+        }[]>('/admin/announcements')
+        const mapped: Announcement[] = data.map(item => ({
+          id: item.id,
+          title: item.title,
+          content: item.content,
+          type: item.type,
+          is_top: item.isTop,
+          created_at: item.createdAt,
+        }))
+        setAnnouncements(mapped)
+      } else if (activeTab === 'reports') {
+        const data = await apiGet<{
+          id: string
+          postId: string
+          userId: string | null
+          reason: string
+          status: string
+          createdAt: string
+        }[]>('/admin/reports', {
+          status: reportStatusFilter === 'all' ? undefined : reportStatusFilter,
+        })
+        const mapped: Report[] = data.map(item => ({
+          id: item.id,
+          post_id: item.postId,
+          reason: item.reason,
+          status: item.status as any,
+          created_at: item.createdAt,
+        }))
+        setReports(mapped)
+      } else if (activeTab === 'appeals') {
+        const data = await apiGet<{
+          id: string
+          postId: string
+          userId: string
+          reason: string
+          status: string
+          adminResponse?: string
+          adminId?: string
+          createdAt: string
+          updatedAt: string
+        }[]>('/admin/appeals', {
+          status: appealStatusFilter === 'all' ? undefined : appealStatusFilter,
+        })
+        const mapped: Appeal[] = data.map(item => ({
+          id: item.id,
+          post_id: item.postId,
+          user_id: item.userId,
+          reason: item.reason,
+          status: item.status as any,
+          admin_response: item.adminResponse,
+          admin_id: item.adminId,
+          created_at: item.createdAt,
+          updated_at: item.updatedAt,
+        }))
+        setAppeals(mapped)
       } else if (activeTab === 'suggestions') {
-        let query = supabase
-          .from('suggestions')
-          .select('*')
-          .order('created_at', { ascending: false })
-
-        if (suggestionCategoryFilter !== 'all') {
-          query = query.eq('category', suggestionCategoryFilter)
-        }
-
-        if (suggestionStatusFilter !== 'all') {
-          query = query.eq('status', suggestionStatusFilter)
-        }
-
-        const { data } = await query
-        setSuggestions((data as any) || [])
+        const data = await apiGet<{
+          id: string
+          userId?: string
+          content: string
+          category: string
+          status: string
+          adminResponse?: string
+          adminId?: string
+          isAnonymous: boolean
+          createdAt: string
+          updatedAt: string
+        }[]>('/admin/suggestions', {
+          category: suggestionCategoryFilter === 'all' ? undefined : suggestionCategoryFilter,
+          status: suggestionStatusFilter === 'all' ? undefined : suggestionStatusFilter,
+        })
+        const mapped: Suggestion[] = data.map(item => ({
+          id: item.id,
+          user_id: item.userId,
+          content: item.content,
+          category: item.category as any,
+          status: item.status as any,
+          admin_response: item.adminResponse,
+          admin_id: item.adminId,
+          is_anonymous: item.isAnonymous,
+          created_at: item.createdAt,
+          updated_at: item.updatedAt,
+        }))
+        setSuggestions(mapped)
       } else if (activeTab === 'moderation') {
-        let query = supabase
-          .from('posts')
-          .select('*')
-          .eq('review_status', 'pending')
-          .order('created_at', { ascending: false })
+        const data = await apiGet<{
+          list: {
+            id: string
+            content: string
+            authorName: string
+            type: string
+            subject?: string
+            imageUrl?: string
+            likes: number
+            commentCount: number
+            isFeatured: boolean
+            reviewStatus: string
+            status: string
+            createdAt: string
+          }[]
+          total: number
+          page: number
+          size: number
+        }>('/admin/posts', {
+          page: 1,
+          size: 100,
+          type: postTypeFilter === 'all' ? undefined : postTypeFilter,
+          reviewStatus: 'pending',
+        })
 
-        if (postTypeFilter !== 'all') {
-          query = query.eq('type', postTypeFilter)
-        }
+        let mapped: Post[] = (data.list || []).map(item => ({
+          id: item.id,
+          content: item.content,
+          author_name: item.authorName,
+          created_at: item.createdAt,
+          likes: item.likes ?? 0,
+          type: item.type as any,
+          subject: item.subject,
+          image_url: item.imageUrl,
+          is_featured: item.isFeatured,
+          review_status: item.reviewStatus as any,
+          comment_count: item.commentCount,
+          status: item.status as any,
+        }))
 
         if (postSearch.trim()) {
-          const keyword = postSearch.trim().replace(/%/g, '').replace(/,/g, '')
-          const pattern = `%${keyword}%`
-          query = query.or(`content.ilike.${pattern},author_name.ilike.${pattern}`)
+          const keyword = postSearch.trim()
+          mapped = mapped.filter(p =>
+            p.content.includes(keyword) || p.author_name.includes(keyword)
+          )
         }
 
-        const { data } = await query
-        setPosts(data || [])
+        setPosts(mapped)
       } else if (activeTab === 'dashboard') {
         await fetchChartData()
       } else if (activeTab === 'comments') {
         await fetchComments()
       } else if (activeTab === 'settings') {
-        const { data } = await supabase.from('system_settings').select('*')
-        if (data && data.length > 0) {
-          const settings: any = {}
-          data.forEach(item => {
-            settings[item.key] = item.value
-          })
-          setSystemSettings(settings)
-        }
+        const data = await apiGet<Record<string, string>>('/admin/settings')
+        setSystemSettings(data as any)
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -248,120 +347,85 @@ export default function AdminDashboard() {
 
   // 获取评论数据
   const fetchComments = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('comments')
-      .select('*, posts(content)')
-      .order('created_at', { ascending: false })
-      .limit(100)
-    
-    if (!error && data) {
-      setComments(data.map(c => ({
-        ...c,
-        post_title: c.posts?.content?.substring(0, 30) + '...' || '已删除帖子'
-      })))
+    try {
+      const data = await apiGet<{
+        list: {
+          id: string
+          postId: string
+          userId?: string
+          content: string
+          authorName: string
+          likes: number
+          createdAt: string
+        }[]
+        total: number
+        page: number
+        size: number
+      }>('/admin/comments', { page: 1, size: 100 })
+
+      const mapped: Comment[] = (data.list || []).map(item => ({
+        id: item.id,
+        post_id: item.postId,
+        author_name: item.authorName,
+        content: item.content,
+        created_at: item.createdAt,
+        post_title: `帖子ID: ${item.postId}`,
+      }))
+
+      setComments(mapped)
+    } catch (error) {
+      console.error('Error fetching comments:', error)
     }
   }, [])
 
   // 删除评论
   const handleDeleteComment = useCallback(async (id: string) => {
     if (!confirm('确定要删除这条评论吗？')) return
-    const { error } = await supabase.from('comments').delete().eq('id', id)
-    if (!error) {
+    try {
+      await apiDelete<void>(`/admin/comments/${id}`)
       setComments(comments.filter(c => c.id !== id))
       alert('删除成功')
-    } else {
+    } catch (error) {
+      console.error('Delete comment error:', error)
       alert('删除失败')
     }
   }, [comments])
 
   // 获取图表数据（最近7天）- 优化版：一次查询获取所有数据
   const fetchChartData = useCallback(async () => {
-    const days = 7
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - (days - 1))
-    startDate.setHours(0, 0, 0, 0)
-    
-    // 一次性获取所有帖子和评论数据
-    const [
-      { data: posts },
-      { data: comments }
-    ] = await Promise.all([
-      supabase
-        .from('posts')
-        .select('created_at')
-        .gte('created_at', startDate.toISOString()),
-      supabase
-        .from('comments')
-        .select('created_at')
-        .gte('created_at', startDate.toISOString())
-    ])
-    
-    // 在前端按日期分组统计
-    const data = []
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date()
-      date.setDate(date.getDate() - i)
-      date.setHours(0, 0, 0, 0)
-      const nextDate = new Date(date)
-      nextDate.setDate(nextDate.getDate() + 1)
-      
-      const postsCount = posts?.filter(p => {
-        const createdAt = new Date(p.created_at)
-        return createdAt >= date && createdAt < nextDate
-      }).length || 0
-      
-      const commentsCount = comments?.filter(c => {
-        const createdAt = new Date(c.created_at)
-        return createdAt >= date && createdAt < nextDate
-      }).length || 0
-      
-      data.push({
-        date: `${date.getMonth() + 1}/${date.getDate()}`,
-        posts: postsCount,
-        comments: commentsCount,
-      })
+    try {
+      const data = await apiGet<{ date: string; posts: number; comments: number }[]>(
+        '/admin/stats/chart',
+        { days: 7 },
+      )
+      setChartData(data)
+    } catch (error) {
+      console.error('Error fetching chart data:', error)
     }
-    
-    setChartData(data)
   }, [])
 
   const fetchStats = async () => {
     try {
-      const [
-        { count: totalPosts },
-        { count: studyHelpPosts },
-        { count: confessionPosts },
-        { count: anonymousPosts },
-        { count: announcementsCount },
-        { count: pendingReports },
-      ] = await Promise.all([
-        supabase.from('posts').select('*', { head: true, count: 'exact' }),
-        supabase.from('posts').select('*', { head: true, count: 'exact' }).eq('type', 'study_help'),
-        supabase.from('posts').select('*', { head: true, count: 'exact' }).eq('type', 'confession'),
-        supabase.from('posts').select('*', { head: true, count: 'exact' }).eq('type', 'anonymous'),
-        supabase.from('announcements').select('*', { head: true, count: 'exact' }),
-        supabase.from('reports').select('*', { head: true, count: 'exact' }).eq('status', 'pending'),
-      ])
-
-      // 获取评论总数
-      const { count: commentsCount } = await supabase
-        .from('comments')
-        .select('*', { head: true, count: 'exact' })
-      
-      // 获取用户总数 (从 user_profiles 表)
-      const { count: usersCount } = await supabase
-        .from('user_profiles')
-        .select('*', { head: true, count: 'exact' })
+      const data = await apiGet<{
+        totalPosts: number
+        studyHelpPosts: number
+        confessionPosts: number
+        anonymousPosts: number
+        announcements: number
+        pendingReports: number
+        totalComments: number
+        totalUsers: number
+      }>('/admin/stats')
 
       setStats({
-        totalPosts: totalPosts || 0,
-        studyHelpPosts: studyHelpPosts || 0,
-        confessionPosts: confessionPosts || 0,
-        anonymousPosts: anonymousPosts || 0,
-        announcements: announcementsCount || 0,
-        pendingReports: pendingReports || 0,
-        totalComments: commentsCount || 0,
-        totalUsers: usersCount || 0,
+        totalPosts: Number(data.totalPosts || 0),
+        studyHelpPosts: Number(data.studyHelpPosts || 0),
+        confessionPosts: Number(data.confessionPosts || 0),
+        anonymousPosts: Number(data.anonymousPosts || 0),
+        announcements: Number(data.announcements || 0),
+        pendingReports: Number(data.pendingReports || 0),
+        totalComments: Number(data.totalComments || 0),
+        totalUsers: Number(data.totalUsers || 0),
       })
     } catch (error) {
       console.error('Error fetching admin stats:', error)
@@ -374,16 +438,10 @@ export default function AdminDashboard() {
 
     setAppealActionLoadingId(appeal.id)
     try {
-      const { error } = await supabase.rpc('handle_appeal', {
-        p_appeal_id: appeal.id,
-        p_status: status,
-        p_admin_response: response || null,
+      await apiPut<void>(`/admin/appeals/${appeal.id}`, {
+        status,
+        adminResponse: response || null,
       })
-
-      if (error) {
-        alert(`${label}失败：` + error.message)
-        return
-      }
 
       setAppeals(prev => prev.map(a => a.id === appeal.id ? { ...a, status, admin_response: response } : a))
       setActionMessage(`已${label}该申诉`)
@@ -414,16 +472,10 @@ export default function AdminDashboard() {
 
     setSuggestionActionLoadingId(suggestion.id)
     try {
-      const { error } = await supabase.rpc('handle_suggestion', {
-        p_suggestion_id: suggestion.id,
-        p_status: nextStatus,
-        p_admin_response: response || null,
+      await apiPut<void>(`/admin/suggestions/${suggestion.id}`, {
+        status: nextStatus,
+        adminResponse: response || null,
       })
-
-      if (error) {
-        alert('更新失败：' + error.message)
-        return
-      }
 
       setSuggestions(prev => prev.map(s => s.id === suggestion.id ? { ...s, status: nextStatus, admin_response: response } : s))
       setActionMessage(`已将建议标记为「${label}」`)
@@ -488,13 +540,25 @@ export default function AdminDashboard() {
   // --- Post Actions ---
   const handleDeletePost = async (id: string) => {
     if (!confirm('确定要删除这条帖子吗？此操作不可恢复。')) return
-    const { error } = await supabase.from('posts').delete().eq('id', id)
-    if (!error) setPosts(posts.filter((p) => p.id !== id))
+    try {
+      await apiDelete<void>(`/admin/posts/${id}`)
+      setPosts(posts.filter((p) => p.id !== id))
+    } catch (error) {
+      console.error('Delete post error:', error)
+      alert('删除失败')
+    }
   }
 
   const handleToggleFeature = async (post: Post) => {
-    const { error } = await supabase.from('posts').update({ is_featured: !post.is_featured }).eq('id', post.id)
-    if (!error) setPosts(posts.map((p) => (p.id === post.id ? { ...p, is_featured: !p.is_featured } : p)))
+    try {
+      await apiPut<void>(`/admin/posts/${post.id}/feature`, {
+        isFeatured: !post.is_featured,
+      })
+      setPosts(posts.map((p) => (p.id === post.id ? { ...p, is_featured: !p.is_featured } : p)))
+    } catch (error) {
+      console.error('Toggle feature error:', error)
+      alert('更新精选状态失败')
+    }
   }
 
   // --- Moderation Actions ---
@@ -504,37 +568,46 @@ export default function AdminDashboard() {
 
     setModerationLoadingId(postId)
 
-    const { error } = await supabase.from('posts').update({ review_status: status }).eq('id', postId)
+    try {
+      await apiPut<void>(`/admin/posts/${postId}/review`, { status })
 
-    if (error) {
-      alert(label + '失败：' + error.message)
+      setPosts(posts.filter((p) => p.id !== postId))
+      setActionMessage(`已${label}该帖子`)
+      setTimeout(() => setActionMessage(null), 2000)
+    } catch (error: any) {
+      alert(label + '失败：' + (error?.message || '未知错误'))
+    } finally {
       setModerationLoadingId(null)
-      return
     }
-
-    setPosts(posts.filter((p) => p.id !== postId))
-    setActionMessage(`已${label}该帖子`)
-    setTimeout(() => setActionMessage(null), 2000)
-    setModerationLoadingId(null)
   }
 
   // --- Announcement Actions ---
   const handleCreateAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { error } = await supabase.from('announcements').insert([newAnnouncement])
-    if (!error) {
+    try {
+      await apiPost<void>('/admin/announcements', {
+        title: newAnnouncement.title,
+        content: newAnnouncement.content,
+        type: newAnnouncement.type,
+        isTop: newAnnouncement.is_top,
+      })
       setShowAnnouncementForm(false)
       setNewAnnouncement({ title: '', content: '', type: 'notice', is_top: false })
       fetchData()
-    } else {
-      alert('发布失败: ' + error.message)
+    } catch (error: any) {
+      alert('发布失败: ' + (error?.message || '未知错误'))
     }
   }
 
   const handleDeleteAnnouncement = async (id: string) => {
     if (!confirm('确定删除此公告？')) return
-    const { error } = await supabase.from('announcements').delete().eq('id', id)
-    if (!error) setAnnouncements(announcements.filter((a) => a.id !== id))
+    try {
+      await apiDelete<void>(`/admin/announcements/${id}`)
+      setAnnouncements(announcements.filter((a) => a.id !== id))
+    } catch (error) {
+      console.error('Delete announcement error:', error)
+      alert('删除失败')
+    }
   }
 
   const startEditAnnouncement = (item: Announcement) => {
@@ -555,62 +628,61 @@ export default function AdminDashboard() {
   const handleUpdateAnnouncement = async () => {
     if (!editingAnnouncementId || !editingAnnouncement) return
 
-    const { error } = await supabase
-      .from('announcements')
-      .update({
+    try {
+      await apiPut<void>(`/admin/announcements/${editingAnnouncementId}`, {
         title: editingAnnouncement.title,
         content: editingAnnouncement.content,
         type: editingAnnouncement.type,
-        is_top: editingAnnouncement.is_top,
+        isTop: editingAnnouncement.is_top,
       })
-      .eq('id', editingAnnouncementId)
-
-    if (error) {
-      alert('更新失败: ' + error.message)
-      return
-    }
 
     setAnnouncements(
       announcements.map((item) => (item.id === editingAnnouncementId ? { ...item, ...editingAnnouncement } : item)),
     )
 
-    setEditingAnnouncementId(null)
-    setEditingAnnouncement(null)
+      setEditingAnnouncementId(null)
+      setEditingAnnouncement(null)
+    } catch (error: any) {
+      alert('更新失败: ' + (error?.message || '未知错误'))
+    }
   }
 
   const handleToggleAnnouncementTop = async (item: Announcement) => {
-    const { error } = await supabase.from('announcements').update({ is_top: !item.is_top }).eq('id', item.id)
-
-    if (error) {
-      alert('更新置顶状态失败: ' + error.message)
-      return
+    try {
+      await apiPut<void>(`/admin/announcements/${item.id}/top`, {
+        isTop: !item.is_top,
+      })
+      setAnnouncements(announcements.map((a) => (a.id === item.id ? { ...a, is_top: !item.is_top } : a)))
+    } catch (error: any) {
+      alert('更新置顶状态失败: ' + (error?.message || '未知错误'))
     }
-
-    setAnnouncements(announcements.map((a) => (a.id === item.id ? { ...a, is_top: !item.is_top } : a)))
   }
 
   // --- Settings Actions ---
   const handleUpdateSetting = async (key: string, value: string) => {
-    const { error } = await supabase
-      .from('system_settings')
-      .upsert({ key, value })
-      
-    if (error) {
-      alert('保存设置失败: ' + error.message)
-    } else {
+    try {
+      const newSettings = { ...systemSettings, [key]: value }
+      await apiPut<void>('/admin/settings', newSettings)
       setSystemSettings(prev => ({ ...prev, [key]: value }))
       setActionMessage('设置已保存')
       setTimeout(() => setActionMessage(null), 2000)
+    } catch (error: any) {
+      alert('保存设置失败: ' + (error?.message || '未知错误'))
     }
   }
 
   // --- Report Actions ---
   const handleResolveReport = async (id: string, status: 'resolved' | 'ignored') => {
-    const { error } = await supabase.from('reports').update({ status }).eq('id', id)
-    if (!error) {
+    try {
+      await apiPut<void>(`/admin/reports/${id}`, {
+        status,
+        deletePost: false,
+      })
       setReports(reports.map((r) => (r.id === id ? { ...r, status } : r)))
       setActionMessage(status === 'resolved' ? '已标记为已处理' : '已忽略该举报')
       setTimeout(() => setActionMessage(null), 2000)
+    } catch (error) {
+      console.error('Resolve report error:', error)
     }
   }
 
@@ -619,17 +691,21 @@ export default function AdminDashboard() {
     if (!confirm('确定删除该帖子并标记举报为已处理？')) return
     reportActionLoadingId || setReportActionLoadingId(reportId)
 
-    const { error: deleteError } = await supabase.from('posts').delete().eq('id', postId)
-    if (deleteError) {
+    try {
+      await apiPut<void>(`/admin/reports/${reportId}`, {
+        status: 'resolved',
+        deletePost: true,
+      })
+      setReports(reports.map((r) => (r.id === reportId ? { ...r, status: 'resolved' } : r)))
+      setPosts(posts.filter(p => p.id !== postId))
+      setActionMessage('已删除帖子并结案')
+      setTimeout(() => setActionMessage(null), 2000)
+    } catch (error) {
+      console.error('Delete reported post error:', error)
       alert('删除帖子失败')
+    } finally {
       setReportActionLoadingId(null)
-      return
     }
-
-    await handleResolveReport(reportId, 'resolved')
-    setActionMessage('已删除帖子并结案')
-    setTimeout(() => setActionMessage(null), 2000)
-    setReportActionLoadingId(null)
   }
 
   const handleLogout = () => {
@@ -2005,8 +2081,19 @@ export default function AdminDashboard() {
                               {post.type}
                             </span>
                           </td>
-                          <td className="p-4 max-w-md truncate" title={post.content}>
-                            {post.content}
+                          <td className="p-4 align-top max-w-md">
+                            <div className="truncate" title={post.content}>
+                              {post.content}
+                            </div>
+                            {post.image_url && (
+                              <div className="mt-2">
+                                <img
+                                  src={post.image_url}
+                                  alt="帖子图片预览"
+                                  className="w-32 h-20 object-cover rounded border border-white/10"
+                                />
+                              </div>
+                            )}
                           </td>
                           <td className="p-4 text-gray-300">{post.author_name}</td>
                           <td className="p-4 text-gray-500">

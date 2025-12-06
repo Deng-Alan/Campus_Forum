@@ -45,12 +45,18 @@ export function CreatePost({ onSubmit, currentType }: CreatePostProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!content.trim() || isSubmitting || filterFeedback.hasSensitive) return
+    const trimmed = content.trim()
+    if (!trimmed || isSubmitting || filterFeedback.hasSensitive) return
+
+    if (trimmed.length > 5000) {
+      alert('帖子内容长度不能超过5000个字符')
+      return
+    }
 
     setIsSubmitting(true)
     try {
       // 最终提交前再过滤一次（虽然数据库也有触发器，前端先处理体验更好）
-      const filteredResult = filterContent(content)
+      const filteredResult = filterContent(trimmed)
       
       await onSubmit({
         content: filteredResult.text,
