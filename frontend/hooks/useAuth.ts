@@ -85,7 +85,7 @@ export function useAuth() {
         userId: data.id,
         username: data.username,
         nickname: data.nickname,
-        email: data.email, // Supabase Auth 管理邮箱
+        email: data.email,
         avatar: data.avatar
       })
     } catch {
@@ -98,7 +98,7 @@ export function useAuth() {
 
   const register = async (data: RegisterData): Promise<{ success: boolean; message: string }> => {
     try {
-      // 使用 Supabase Auth 注册，触发器会自动创建 user_profile
+      // 调用后端注册接口
       await apiPost<void>('/auth/register', {
         username: data.username,
         nickname: data.nickname,
