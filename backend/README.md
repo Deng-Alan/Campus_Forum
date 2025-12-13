@@ -4,7 +4,7 @@
 
 - **框架**: Spring Boot 2.7.17
 - **JDK**: Java 17
-- **数据库**: PostgreSQL 18.0
+- **数据库**: PostgreSQL 16+
 - **ORM**: MyBatis Plus 3.5.4
 - **缓存**: Redis 7.2
 - **安全**: Spring Security + JWT 0.11.5

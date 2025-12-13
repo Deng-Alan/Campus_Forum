@@ -35,13 +35,13 @@ git push -u origin main
 2. **导入项目**
    - 点击 "Add New..." → "Project"
    - 选择你的 GitHub 仓库
-   - 选择 `web` 目录作为根目录
+   - 选择 `frontend` 目录作为根目录
 
 3. **配置环境变量**
    点击 "Environment Variables"，添加：
    ```
-   NEXT_PUBLIC_SUPABASE_URL = https://akrknieplbxqpynwfagx.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcmtuaWVwbGJ4cXB5bndmYWd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MzE5NjksImV4cCI6MjA3OTMwNzk2OX0.pBJwgZnDAt-T7tksydAGoFoTmM2oLxWKP0A5HB7lYpo
+   NEXT_PUBLIC_API_BASE_URL = https://你的后端域名/api/v1
+   NEXT_PUBLIC_SITE_URL = https://你的项目名.vercel.app
    ```
 
 4. **部署**
@@ -91,16 +91,13 @@ git push origin main
 - 添加你的域名
 - 按照提示配置 DNS
 
-### 2. 配置 Supabase CORS
+### 2. 配置后端 CORS（可选）
 
-在 Supabase 项目设置中添加 Vercel 域名：
-- 登录 Supabase Dashboard
-- Settings → API
-- Site URL: 添加你的 Vercel URL
+如果后端与前端是不同域名部署，请确保后端已允许来自前端域名的跨域请求。
 
 ### 3. 更新管理员配置
 
-如果需要，在 Supabase 中配置管理员账号。
+如果需要，修改默认管理员账号（见 `init_database.sql`）并在上线后尽快更改密码。
 
 ## 🐛 常见问题
 
@@ -121,9 +118,9 @@ git push origin main
 
 ### 运行时错误
 
-1. **检查 Supabase 连接**
-   - 确认 Supabase URL 和 Key 正确
-   - 检查 RLS 策略
+1. **检查后端 API 连接**
+   - 确认 `NEXT_PUBLIC_API_BASE_URL` 指向可访问的后端地址（例如 `https://api.example.com/api/v1`）
+   - 如果跨域失败，检查后端 CORS 配置
 
 2. **检查浏览器控制台**
    - F12 打开开发者工具

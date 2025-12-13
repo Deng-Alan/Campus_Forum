@@ -18,8 +18,11 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // 允许的源
-        config.setAllowedOriginPatterns(Arrays.asList("*"));
+        // 允许的源（生产环境收紧为前端域名）
+        config.setAllowedOriginPatterns(Arrays.asList(
+            "https://luntan.acdji.asia",
+            "http://localhost:3000"  // 本地开发
+        ));
         
         // 允许的请求头
         config.addAllowedHeader("*");

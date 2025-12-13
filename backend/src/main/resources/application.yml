@@ -10,9 +10,9 @@ spring:
   # 数据源配置 - PostgreSQL
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: '${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/campus_forum?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}'
-    username: '${SPRING_DATASOURCE_USERNAME:postgres}'
-    password: '${SPRING_DATASOURCE_PASSWORD:918112}'
+    url: jdbc:postgresql://127.0.0.1:5432/campusforum?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: postgres
+    password: "dwb918112@{}_+"
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
@@ -24,9 +24,9 @@ spring:
 
   # Redis 配置
   redis:
-    host: localhost
+    host: 127.0.0.1
     port: 6379
-    password: 
+    password: "918112"
     database: 0
     timeout: 10000ms
     lettuce:
@@ -67,7 +67,7 @@ mybatis-plus:
 
 # JWT 配置
 jwt:
-  secret: '${JWT_SECRET:change-me-in-prod}'
+  secret: '${JWT_SECRET:CampusForum2024SecretKeyForJwtTokenGeneration}'
   expiration: ${JWT_EXPIRATION:86400000}   # 24小时 (毫秒)
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}  # 7天 (毫秒)
   header: Authorization
@@ -95,7 +95,8 @@ knife4j:
 campus:
   # 文件上传配置
   upload:
-    path: uploads/
+    path: '${UPLOAD_PATH:/www/wwwroot/Campus_Forum/uploads}'
+    base-url: '${UPLOAD_BASE_URL:https://api.luntan.acdji.asia}'
     allowed-types: jpg,jpeg,png,gif,webp
     max-size: 5242880  # 5MB
   
@@ -125,7 +126,7 @@ spring:
     activate:
       on-profile: prod
   datasource:
-    url: '${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/campus_forum}'
+    url: jdbc:postgresql://127.0.0.1:5432/campusforum
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl

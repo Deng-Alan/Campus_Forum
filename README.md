@@ -2,8 +2,9 @@
 
 > 一个专为初中生设计的安全、友好的校园社区平台
 
-[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
-[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green)](https://supabase.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.17-brightgreen)](https://spring.io/projects/spring-boot)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue)](https://www.postgresql.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -90,7 +91,7 @@
 - ✅ 本地图片直接上传
 - ✅ 实时预览 + 一键删除
 - ✅ 支持 JPG/PNG/GIF，最大 5MB
-- ✅ Supabase Storage 云存储
+- ✅ 后端文件上传（`uploads/`，可替换对象存储）
 
 ---
 
@@ -111,7 +112,9 @@ http://localhost:3000/post/xxx
 
 - Node.js 18+
 - npm 或 yarn
-- Supabase 账号（免费）
+- JDK 17+
+- Maven 3.6+
+- PostgreSQL 16+ / Redis 7.2（推荐使用项目自带 `docker-compose.yml` 一键启动）
 
 ### 安装步骤
 
@@ -123,25 +126,29 @@ cd Campus_Forum
 
 #### 2. 安装依赖
 ```bash
-cd web
+cd frontend
 npm install
 ```
 
-#### 3. 配置环境变量
-创建 `web/.env.local` 文件：
-```env
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+#### 3. 启动数据库与 Redis（推荐）
+```bash
+docker-compose up -d
 ```
 
-#### 4. 运行数据库脚本
-在 [Supabase Dashboard](https://supabase.com/dashboard) 的 SQL Editor 中依次运行：
-1. `supabase_schema_v2.sql`
-2. `supabase_comments.sql`
-3. `supabase_storage_setup.sql`
-4. `supabase_leaderboard.sql`
+#### 4. 启动后端服务
+```bash
+cd backend
+mvn spring-boot:run
+```
 
-#### 5. 启动开发服务器
+#### 5. 配置前端环境变量（可选）
+创建 `frontend/.env.local` 文件：
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+#### 6. 启动前端开发服务器
 ```bash
 npm run dev
 ```
@@ -154,28 +161,14 @@ npm run dev
 
 ```
 Campus_Forum/
-├── web/                          # Next.js 前端项目
-│   ├── app/                      # App Router 页面
-│   │   ├── page.tsx             # 首页
-│   │   └── admin/               # 后台管理
-│   ├── components/               # React 组件
-│   │   ├── PostCard.tsx         # 帖子卡片
-│   │   ├── CreatePost.tsx       # 发帖组件
-│   │   ├── CommentSection.tsx   # 评论区
-│   │   ├── Leaderboard.tsx      # 排行榜
-│   │   ├── UserSettings.tsx     # 用户设置
-│   │   └── ImageUpload.tsx      # 图片上传
-│   ├── hooks/                    # 自定义 Hooks
-│   │   └── useUser.ts           # 用户管理
-│   ├── lib/                      # 工具函数
-│   │   ├── supabase.ts          # Supabase 客户端
-│   │   ├── content-filter.ts    # 内容过滤
-│   │   └── share-utils.ts       # 分享工具
-│   └── types/                    # TypeScript 类型定义
-├── supabase_*.sql                # 数据库脚本
+├── frontend/                     # Next.js 前端项目
+├── backend/                      # Spring Boot 后端服务
+├── docs/                         # 文档（接口对接等）
+├── docker-compose.yml            # PostgreSQL + Redis（本地开发）
+├── init_database.sql             # 数据库初始化脚本
+├── API_DESIGN.md                 # API 设计文档
+├── DATABASE_DESIGN.md            # 数据库设计
 ├── PROJECT_STATUS.md             # 项目状态
-├── DEPLOYMENT_GUIDE.md           # 部署指南
-├── TESTING_CHECKLIST.md          # 测试清单
 ├── CHANGELOG.md                  # 更新日志
 └── README.md                     # 项目说明
 ```
@@ -185,16 +178,18 @@ Campus_Forum/
 ## 🛠️ 技术栈
 
 ### 前端
-- **框架**: Next.js 15 (App Router)
+- **框架**: Next.js 16 (App Router)
 - **语言**: TypeScript
 - **样式**: Tailwind CSS
 - **图标**: Lucide Icons
 - **日期**: date-fns
 
 ### 后端
-- **数据库**: Supabase (PostgreSQL)
-- **存储**: Supabase Storage
-- **实时**: Supabase Realtime (可选)
+- **框架**: Spring Boot 2.7.17 (Java 17)
+- **数据库**: PostgreSQL
+- **缓存**: Redis
+- **ORM**: MyBatis Plus
+- **安全**: Spring Security + JWT
 
 ### 部署
 - **推荐**: Vercel
@@ -279,31 +274,33 @@ npm run lint         # 代码检查
 
 ### 数据库变更
 1. 编写 SQL 脚本
-2. 在 Supabase Dashboard 测试
-3. 更新 `DEPLOYMENT_GUIDE.md`
+2. 在本地 PostgreSQL 测试（推荐使用 `docker-compose.yml`）
+3. 更新 `init_database.sql` 并同步相关文档
 
 ---
 
 ## 🐛 常见问题
 
-### Q: 提示 "supabaseUrl is required"
-**A**: 检查 `.env.local` 文件是否存在，重启开发服务器。
+### Q: 接口请求失败 / fetch failed
+**A**: 确认后端已启动（默认 `http://localhost:8080`），并检查 `NEXT_PUBLIC_API_BASE_URL` 配置。
 
 ### Q: 图片上传失败
-**A**: 确认 Supabase Storage 中已创建 `images` bucket，且设置为 Public。
+**A**: 确认后端 `/api/v1/upload/image` 可访问，并检查后端 `campus.upload.path` 目录可写。
 
 ### Q: 排行榜显示"暂无数据"
 **A**: 发布几条"学习互助"类型的帖子和回复。
 
-更多问题请查看 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+更多问题请查看 [frontend/DEPLOY.md](frontend/DEPLOY.md)
 
 ---
 
 ## 📄 文档导航
 
 - 📋 [项目状态](PROJECT_STATUS.md) - 功能完成度和待办事项
-- 🚀 [部署指南](DEPLOYMENT_GUIDE.md) - 详细部署步骤
-- ✅ [测试清单](TESTING_CHECKLIST.md) - 完整测试流程
+- 🚀 [前端部署指南](frontend/DEPLOY.md) - Vercel 部署说明
+- 🔌 [前后端接口对接](docs/frontend-backend-integration.md) - 接口对接关系
+- 📚 [API 设计](API_DESIGN.md) - 后端接口定义
+- 🗄️ [数据库设计](DATABASE_DESIGN.md) - 数据库结构说明
 - 📝 [更新日志](CHANGELOG.md) - 版本更新记录
 
 ---
@@ -329,7 +326,7 @@ npm run lint         # 代码检查
 ## 🙏 致谢
 
 - [Next.js](https://nextjs.org/) - React 框架
-- [Supabase](https://supabase.com/) - 后端即服务
+- [Spring Boot](https://spring.io/projects/spring-boot) - 后端框架
 - [Tailwind CSS](https://tailwindcss.com/) - CSS 框架
 - [Lucide Icons](https://lucide.dev/) - 图标库
 
